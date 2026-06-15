@@ -24,14 +24,14 @@ class Color:
     RESET = '\033[0m'
     BOLD = '\033[1m'
 
-def success(msg): print(f"{Color.GREEN}✅ {msg}{Color.RESET}")
-def error(msg): print(f"{Color.RED}❌ {msg}{Color.RESET}")
-def warning(msg): print(f"{Color.YELLOW}⚠️  {msg}{Color.RESET}")
-def info(msg): print(f"{Color.CYAN}ℹ️  {msg}{Color.RESET}")
+def success(msg): print(f"{Color.GREEN}[OK] {msg}{Color.RESET}")
+def error(msg): print(f"{Color.RED}[FAIL] {msg}{Color.RESET}")
+def warning(msg): print(f"{Color.YELLOW}[WARN] {msg}{Color.RESET}")
+def info(msg): print(f"{Color.CYAN}[INFO] {msg}{Color.RESET}")
 
 def check_python():
     """Check Python version."""
-    print(f"\n{Color.BOLD}📌 Python Configuration{Color.RESET}")
+    print(f"\n{Color.BOLD}[PYTHON] Configuration{Color.RESET}")
 
     version_info = sys.version_info
     version_str = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
@@ -57,7 +57,7 @@ def check_package(package_name, display_name=None):
 
 def check_core_packages():
     """Check all core dependencies."""
-    print(f"\n{Color.BOLD}📦 Core Dependencies{Color.RESET}")
+    print(f"\n{Color.BOLD}[DEPS] Core Dependencies{Color.RESET}")
 
     packages = [
         ('langgraph', 'LangGraph'),
@@ -80,7 +80,7 @@ def check_core_packages():
 
 def check_pytorch():
     """Check PyTorch installation and ROCM support."""
-    print(f"\n{Color.BOLD}🔥 PyTorch & GPU Support{Color.RESET}")
+    print(f"\n{Color.BOLD}[TORCH] PyTorch & GPU Support{Color.RESET}")
 
     try:
         import torch
@@ -106,7 +106,7 @@ def check_pytorch():
 
 def check_vllm():
     """Check vLLM installation."""
-    print(f"\n{Color.BOLD}⚡ vLLM (Optional){Color.RESET}")
+    print(f"\n{Color.BOLD}[VLLM] vLLM (Optional){Color.RESET}")
 
     try:
         import vllm
@@ -118,7 +118,7 @@ def check_vllm():
 
 def check_file_structure():
     """Check that project files are in the right place."""
-    print(f"\n{Color.BOLD}📁 File Structure{Color.RESET}")
+    print(f"\n{Color.BOLD}[FILES] File Structure{Color.RESET}")
 
     required_files = {
         'src/changeguardian_enhanced.py': 'Core module',
@@ -143,7 +143,7 @@ def check_file_structure():
 
 def check_embedding_model():
     """Check if embedding model is cached."""
-    print(f"\n{Color.BOLD}🧠 Embedding Model{Color.RESET}")
+    print(f"\n{Color.BOLD}[MODEL] Embedding Model{Color.RESET}")
 
     try:
         import os
@@ -167,7 +167,7 @@ def check_embedding_model():
 
 def check_llm_connectivity():
     """Check if Ollama is running."""
-    print(f"\n{Color.BOLD}🤖 LLM Service{Color.RESET}")
+    print(f"\n{Color.BOLD}[LLM] LLM Service{Color.RESET}")
 
     try:
         import requests
@@ -196,7 +196,7 @@ def check_vllm_connectivity():
 
 def run_import_test():
     """Test importing the main module."""
-    print(f"\n{Color.BOLD}🧪 Import Test{Color.RESET}")
+    print(f"\n{Color.BOLD}[TEST] Import Test{Color.RESET}")
 
     try:
         # Add project to path
@@ -239,9 +239,9 @@ Examples:
     args = parser.parse_args()
 
     print(f"{Color.BOLD}{Color.CYAN}")
-    print("═" * 70)
+    print("=" * 70)
     print("  ChangeGuardian AI - Setup Validation")
-    print("═" * 70)
+    print("=" * 70)
     print(f"{Color.RESET}")
 
     checks = []
@@ -269,9 +269,9 @@ Examples:
 
     # Summary
     print(f"\n{Color.BOLD}{Color.CYAN}")
-    print("═" * 70)
+    print("=" * 70)
     print("  Validation Summary")
-    print("═" * 70)
+    print("=" * 70)
     print(f"{Color.RESET}")
 
     passed = sum(1 for _, result in checks if result)
@@ -284,7 +284,7 @@ Examples:
     print(f"\n  Result: {passed}/{total} checks passed")
 
     if passed == total:
-        success("All checks passed! ✨")
+        success("All checks passed!")
         print(f"\n{Color.BOLD}Next steps:{Color.RESET}")
         print("  1. python src/changeguardian_interactive_demo.py")
         print("  2. Open http://localhost:7860 in browser")

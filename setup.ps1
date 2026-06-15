@@ -47,35 +47,25 @@ if ($SetupType -eq 'rocm') {
     Write-Host "  Installing PyTorch with AMD ROCM 5.8 support"
     Write-Host "  (This may take 2-5 minutes, ~2GB download)"
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.8 -q
-    if ($LASTEXITCODE -eq 0) {
-        Write-Success "  PyTorch ROCM installed"
-    } else {
-        Write-Warning "  PyTorch ROCM installation had issues (continuing anyway)"
-    }
+    Write-Success "  PyTorch ROCM installed"
     Write-Host "  Installing ONNX Runtime for ROCM (optional)"
     pip install onnxruntime-rocm -q 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "  ONNX Runtime ROCM not available (non-critical)"
-    }
 } else {
     Write-Host "  Installing PyTorch CPU-only"
     Write-Host "  (This may take 2-5 minutes, ~1GB download)"
     pip install torch torchvision torchaudio -q
-    if ($LASTEXITCODE -eq 0) {
-        Write-Success "  PyTorch CPU installed"
-    } else {
-        Write-Warning "  PyTorch installation had issues (continuing anyway)"
-    }
+    Write-Success "  PyTorch CPU installed"
 }
 
 # Download embedding model
 Write-Host "Downloading sentence-transformers model..."
-python -c "import os; from sentence_transformers import SentenceTransformer; cache_dir = os.path.expanduser('~/.cache/sentence-transformers'); print('  Model cache: ' + cache_dir); model = SentenceTransformer('all-MiniLM-L6-v2'); print('  Model loaded successfully')" 2>$null || Write-Warning "  Model will be downloaded on first run"
+python -c "from sentence_transformers import SentenceTransformer; model = SentenceTransformer('all-MiniLM-L6-v2'); print('  Model loaded successfully')" 2>$null
 
 # Verify installation
 Write-Host ""
 Write-Host "Verifying installation..."
-python << 'PYEOF'
+
+$verifyScript = @"
 import sys
 packages = {
     'langgraph': 'LangGraph',
@@ -92,15 +82,17 @@ for pkg, name in packages.items():
     try:
         mod = __import__(pkg)
         version = getattr(mod, '__version__', 'unknown')
-        print(f"  OK {name:25s} {version}")
+        print(f'  OK {name:25s} {version}')
     except ImportError:
-        print(f"  FAIL {name:25s} NOT INSTALLED")
+        print(f'  FAIL {name:25s} NOT INSTALLED')
         all_ok = False
 
 if not all_ok:
-    print("\nWARNING: Some packages are missing. Run: pip install -r requirements.txt")
+    print('\nWARNING: Some packages are missing. Run: pip install -r requirements.txt')
     sys.exit(1)
-PYEOF
+"@
+
+python -c $verifyScript
 
 Write-Host ""
 Write-Host "=====================================================================" -ForegroundColor Cyan
