@@ -20,7 +20,6 @@ sys.path.insert(0, str(project_root / "src"))
 from changeguardian_enhanced import (
     workflow,
     OLLAMA_MODEL,
-    MODEL_CONFIG,
     OLLAMA_READY,
     ram_gb,
     cpu_cores,
@@ -28,6 +27,56 @@ from changeguardian_enhanced import (
     incident_docs,
     get_affected_services,
 )
+
+# vLLM Configuration
+VLLM_MODELS = {
+    "qwen2.5:3b": {
+        "hf_model": "Qwen/Qwen2.5-3B-Instruct",
+        "context": 32768,
+        "reasoning": "basic",
+    },
+    "qwen2.5:7b": {
+        "hf_model": "Qwen/Qwen2.5-7B-Instruct",
+        "context": 32768,
+        "reasoning": "intermediate",
+    },
+    "qwen2.5:14b": {
+        "hf_model": "Qwen/Qwen2.5-14B-Instruct",
+        "context": 32768,
+        "reasoning": "deep",
+    },
+    "qwen3:30b-a3b": {
+        "hf_model": "Qwen/Qwen-30B-A3B-Instruct",
+        "context": 128000,
+        "reasoning": "expert",
+    },
+    "llama3.1:70b": {
+        "hf_model": "meta-llama/Llama-2-70b-chat-hf",
+        "context": 131072,
+        "reasoning": "expert",
+    },
+}
+
+def check_vllm_models():
+    """Get list of available models from vLLM server."""
+    try:
+        response = requests.get("http://localhost:8000/v1/models", timeout=3)
+        if response.status_code == 200:
+            models = response.json().get("data", [])
+            return [m.get("id") for m in models]
+    except:
+        pass
+    return []
+
+def get_vllm_status():
+    """Check if vLLM is running and get status."""
+    try:
+        response = requests.get("http://localhost:8000/v1/models", timeout=3)
+        if response.status_code == 200:
+            return True, check_vllm_models()
+    except:
+        pass
+    return False, []
 
 # ============================================================================
 # PAGE CONFIG
@@ -77,17 +126,33 @@ with st.sidebar:
     with col2:
         st.metric("RAM", f"{ram_gb:.1f} GB")
 
-    st.markdown("### LLM Model")
-    st.markdown(f"**Selected:** `{OLLAMA_MODEL}`")
-    st.markdown(f"**Context:** `{MODEL_CONFIG['context_window']:,}` tokens")
-    st.markdown(f"**Reasoning:** `{MODEL_CONFIG['reasoning_depth'].upper()}`")
+    st.markdown("### LLM Backend")
 
-    # Status indicator
-    status_color = "🟢" if OLLAMA_READY else "🔴"
-    st.markdown(f"{status_color} **vLLM Status:** {'RUNNING' if OLLAMA_READY else 'OFFLINE (Rule-based)'}")
+    # Check vLLM status
+    vllm_running, available_models = get_vllm_status()
 
-    if not OLLAMA_READY:
-        st.warning("⚠️ vLLM not detected on port 8000. Using rule-based analysis.")
+    if vllm_running and available_models:
+        st.markdown(f"🟢 **vLLM Status:** RUNNING")
+        st.markdown(f"**Available Models:** {len(available_models)}")
+
+        # Show available models
+        with st.expander("📋 Available Models"):
+            for model in available_models:
+                st.markdown(f"- `{model}`")
+
+        # Show current model info
+        current_model = available_models[0] if available_models else OLLAMA_MODEL
+        if current_model in VLLM_MODELS:
+            model_info = VLLM_MODELS[current_model]
+            st.markdown(f"**Model:** `{current_model}`")
+            st.markdown(f"**Context:** `{model_info['context']:,}` tokens")
+            st.markdown(f"**Reasoning:** `{model_info['reasoning'].upper()}`")
+        else:
+            st.markdown(f"**Model:** `{current_model}`")
+    else:
+        st.markdown(f"🔴 **vLLM Status:** OFFLINE")
+        st.markdown(f"**Fallback:** Rule-based analysis")
+        st.warning("⚠️ vLLM not detected on port 8000.")
 
     st.divider()
 

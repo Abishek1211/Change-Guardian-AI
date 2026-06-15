@@ -16,6 +16,7 @@ sentence-transformers>=2.2.2
 
 # Web Interface
 gradio>=4.20.0
+streamlit>=1.28.0
 
 # Utilities
 psutil>=5.9.0
@@ -27,8 +28,15 @@ python-dotenv>=1.0.0
 # NOTE: PyTorch must be installed SEPARATELY with AMD ROCM support:
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.8
 #
-# OPTIONAL: If you want to use Ollama instead of vLLM:
-# pip install ollama
+# VLLM SETUP (Recommended for production):
+# pip install vllm
+# python -m vllm.entrypoints.openai.api_server \
+#   --model Qwen/Qwen-30B-A3B-Instruct \
+#   --port 8000
+#
+# WEB INTERFACES:
+# - Gradio: python src/changeguardian_interactive_demo.py (http://localhost:7860)
+# - Streamlit: streamlit run streamlit_app.py (http://localhost:8501)
 #
 # OPTIONAL: Development tools (only if you're developing):
 # pip install jupyter ipython pytest black pylint
