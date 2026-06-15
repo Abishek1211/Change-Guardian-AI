@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChangeGuardian AI - Deployment Risk Analysis Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .system-info {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .system-info div {
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .system-info strong {
+            display: block;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(650px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .scenario-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .scenario-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .scenario-header {
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+
+        .scenario-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .scenario-type {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .risk-score-section {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .risk-gauge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .risk-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2em;
+            font-weight: bold;
+            color: white;
+        }
+
+        .risk-low {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .risk-medium {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .risk-high {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        .risk-critical {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+
+        .risk-label {
+            font-weight: 600;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        .risk-details {
+            flex: 1;
+        }
+
+        .impact-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 0.95em;
+        }
+
+        .impact-low { background: #d4edda; color: #155724; }
+        .impact-medium { background: #fff3cd; color: #856404; }
+        .impact-high { background: #f8d7da; color: #721c24; }
+        .impact-critical { background: #f5c6cb; color: #721c24; }
+
+        .section {
+            margin: 20px 0;
+        }
+
+        .section-title {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .affected-services {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .service-tag {
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+        }
+
+        .incident-item, .violation-item, .remediation-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+
+        .incident-item {
+            border-left-color: #ff6b6b;
+        }
+
+        .violation-item {
+            border-left-color: #ffa94d;
+        }
+
+        .remediation-item {
+            border-left-color: #51cf66;
+        }
+
+        .severity-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .severity-p1 { background: #ff6b6b; color: white; }
+        .severity-p2 { background: #ffa94d; color: white; }
+
+        .rollout-plan {
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-left: 4px solid #667eea;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .llm-explanation {
+            padding: 15px;
+            background: #e8f4f8;
+            border-left: 4px solid #0099cc;
+            border-radius: 6px;
+            margin: 15px 0;
+            color: #333;
+            font-style: italic;
+        }
+
+        .statistics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .risk-score-section {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .statistics {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 ChangeGuardian AI</h1>
+            <p>Pre-Deployment Production Risk Analysis Platform</p>
+        </header>
+
+        <div class="system-info">
+            <div>
+                <strong>💾 System</strong>
+                Intel Core (16 cores, 24 threads)
+            </div>
+            <div>
+                <strong>🧠 RAM</strong>
+                15.8 GB Total
+            </div>
+            <div>
+                <strong>🤖 LLM</strong>
+                Qwen2.5 3B (Local / Ollama)
+            </div>
+            <div>
+                <strong>⚡ Pipeline Time</strong>
+                ~2.1s per analysis
+            </div>
+        </div>
+
+        <div class="statistics">
+            <div class="stat-card">
+                <div class="stat-number">6</div>
+                <div class="stat-label">Demo Scenarios</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">7</div>
+                <div class="stat-label">Analysis Agents</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">3</div>
+                <div class="stat-label">BLOCKED</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">3</div>
+                <div class="stat-label">STAGED</div>
+            </div>
+        </div>
+
+        <!-- Scenario 1: Framework Upgrade (CRITICAL) -->
+        <div class="demo-grid">
+            <div class="scenario-card">
+                <div class="scenario-header">
+                    <div class="scenario-title">Upgrade payment-service from Spring Boot 2.7 to 3.2</div>
+                    <span class="scenario-type">Framework Upgrade</span>
+                </div>
+
+                <div class="risk-score-section">
+                    <div class="risk-gauge">
+                        <div class="risk-circle risk-critical">85</div>
+                        <div class="risk-label">Risk Score</div>
+                    </div>
+                    <div class="risk-details">
+                        <div class="impact-badge impact-critical">🚨 CRITICAL</div>
+                        <strong>Service:</strong> payment-service<br/>
+                        <strong>Rollout:</strong> DEPLOYMENT BLOCKED<br/>
+                        <strong>Pipeline:</strong> 2.1s
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Affected Services</div>
+                    <div class="affected-services">
+                        <span class="service-tag">checkout-service</span>
+                        <span class="service-tag">order-service</span>
+                        <span class="service-tag">user-service</span>
+                        <span class="service-tag">inventory-service</span>
+                        <span class="service-tag">notification-svc</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Similar Past Incidents (Vector RAG)</div>
+                    <div class="incident-item">
+                        <span class="severity-badge severity-p1">P1</span>
+                        <strong>INC-002:</strong> Spring Boot 3 migration broke javax imports
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Risk Breakdown</div>
+                    <ul style="margin-left: 20px; color: #666;">
+                        <li>Base score (+10)</li>
+                        <li>Service criticality=critical (+30)</li>
+                        <li>5 affected service(s) (+25)</li>
+                        <li>Similar P1 incident: INC-002 (+20)</li>
+                    </ul>
+                </div>
+
+                <div class="llm-explanation">
+                    <strong>LLM Analysis (Local Qwen2.5 3B):</strong><br/>
+                    This framework upgrade change to payment-service carries critical risk (score 85/100). A similar change previously caused: Spring Boot 3 migration broke javax imports.
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Remediation Steps</div>
+                    <div class="remediation-item">1. Run javax→jakarta migration script on entire codebase</div>
+                    <div class="remediation-item">2. Upgrade Java to 17+ on all pods before deploying</div>
+                    <div class="remediation-item">3. Run full integration test suite against new Spring Boot version</div>
+                </div>
+            </div>
+
+            <!-- Scenario 2: Memory Reduction (CRITICAL) -->
+            <div class="scenario-card">
+                <div class="scenario-header">
+                    <div class="scenario-title">Reduce checkout-service memory 2GB → 1GB</div>
+                    <span class="scenario-type">Resource Change</span>
+                </div>
+
+                <div class="risk-score-section">
+                    <div class="risk-gauge">
+                        <div class="risk-circle risk-critical">100</div>
+                        <div class="risk-label">Risk Score</div>
+                    </div>
+                    <div class="risk-details">
+                        <div class="impact-badge impact-critical">🚨 CRITICAL</div>
+                        <strong>Service:</strong> checkout-service<br/>
+                        <strong>Rollout:</strong> DEPLOYMENT BLOCKED<br/>
+                        <strong>Pipeline:</strong> 2.1s
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Rule Violations (Vectorless RAG)</div>
+                    <div class="violation-item">
+                        <strong>MEMORY_UNSAFE:</strong> 1.0GB &lt; safe minimum 2.16GB (peak 1.8GB + 20% buffer)
+                    </div>
+                    <div class="violation-item">
+                        <strong>HIGH_RESTART_RISK:</strong> checkout-service had 8 restarts in 30d — OOMKill likely
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Similar Past Incidents</div>
+                    <div class="incident-item">
+                        <span class="severity-badge severity-p1">P1</span>
+                        <strong>INC-001:</strong> OOMKilled after memory reduction
+                    </div>
+                </div>
+
+                <div class="llm-explanation">
+                    <strong>LLM Analysis:</strong><br/>
+                    This resource change carries critical risk (score 100/100). 2 rule violation(s) were detected. A similar change previously caused: OOMKilled after memory reduction.
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Memory Safety Check</div>
+                    <ul style="margin-left: 20px; color: #666;">
+                        <li><strong>Current Peak:</strong> 1.8 GB</li>
+                        <li><strong>Safe Floor (120%):</strong> 2.16 GB</li>
+                        <li><strong>Proposed:</strong> 1.0 GB</li>
+                        <li><strong>Shortfall:</strong> 1.16 GB below safe limit</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scenario 3: Database Schema -->
+        <div class="demo-grid">
+            <div class="scenario-card">
+                <div class="scenario-header">
+                    <div class="scenario-title">Add NOT NULL constraint to transaction.amount</div>
+                    <span class="scenario-type">DB Schema</span>
+                </div>
+
+                <div class="risk-score-section">
+                    <div class="risk-gauge">
+                        <div class="risk-circle risk-high">55</div>
+                        <div class="risk-label">Risk Score</div>
+                    </div>
+                    <div class="risk-details">
+                        <div class="impact-badge impact-high">⚠️ HIGH</div>
+                        <strong>Database:</strong> payment-db<br/>
+                        <strong>Rollout:</strong> STAGED ROLLOUT<br/>
+                        <strong>Pipeline:</strong> 2.1s
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Memory Graph - Prior Deployments</div>
+                    <div class="incident-item">
+                        <span style="background: #ff6b6b; color: white; padding: 2px 8px; border-radius: 3px; font-weight: 600;">FAILED</span>
+                        <strong>DEP-103:</strong> Forgot to backfill NULLs | 4 hour P2 incident
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Similar Past Incidents</div>
+                    <div class="incident-item">
+                        <span class="severity-badge severity-p2">P2</span>
+                        <strong>INC-003:</strong> NOT NULL constraint caused bulk insert failure
+                    </div>
+                </div>
+
+                <div class="rollout-plan">
+                    <strong>Recommended Rollout:</strong> STAGED ROLLOUT<br/>
+                    Deploy region-by-region with health checks. Rollback plan required.
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Remediation Steps</div>
+                    <div class="remediation-item">1. Backfill all NULL values in the target column before adding constraint</div>
+                    <div class="remediation-item">2. Run migration in staging with production data copy first</div>
+                    <div class="remediation-item">3. Coordinate deployment with all services sharing the database</div>
+                </div>
+            </div>
+
+            <!-- Scenario 4: API Contract -->
+            <div class="scenario-card">
+                <div class="scenario-header">
+                    <div class="scenario-title">Rename payment API field customer_id → customerId</div>
+                    <span class="scenario-type">API Contract</span>
+                </div>
+
+                <div class="risk-score-section">
+                    <div class="risk-gauge">
+                        <div class="risk-circle risk-high">55</div>
+                        <div class="risk-label">Risk Score</div>
+                    </div>
+                    <div class="risk-details">
+                        <div class="impact-badge impact-high">⚠️ HIGH</div>
+                        <strong>Breaking Change:</strong> Yes<br/>
+                        <strong>Rollout:</strong> STAGED ROLLOUT<br/>
+                        <strong>Pipeline:</strong> 2.1s
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Similar Past Incidents</div>
+                    <div class="incident-item">
+                        <span class="severity-badge severity-p2">P2</span>
+                        <strong>INC-004:</strong> API field rename broke checkout (emergency rollback)
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Risk Breakdown</div>
+                    <ul style="margin-left: 20px; color: #666;">
+                        <li>Base score (+10)</li>
+                        <li>Service criticality=medium (+10)</li>
+                        <li>Similar P2 incident: INC-005 (+20)</li>
+                        <li>Prior failed deployment for similar change (+15)</li>
+                    </ul>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Remediation Steps</div>
+                    <div class="remediation-item">1. Add backward-compatible alias alongside new field name</div>
+                    <div class="remediation-item">2. Version the API endpoint (/v2/) before renaming fields</div>
+                    <div class="remediation-item">3. Notify all consumer teams and agree migration timeline</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div style="background: white; border-radius: 12px; padding: 30px; margin-bottom: 30px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);">
+            <h2 style="color: #333; margin-bottom: 20px; border-bottom: 3px solid #667eea; padding-bottom: 10px;">
+                🔬 How ChangeGuardian Analyzes Changes
+            </h2>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong style="font-size: 1.1em;">1️⃣ Intake Agent</strong><br/>
+                    Parses the change request and extracts service name, old/new values, and parameters using regex patterns.
+                </div>
+
+                <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong style="font-size: 1.1em;">2️⃣ Scenario Router</strong><br/>
+                    Classifies the change type: framework_upgrade, resource_change, db_schema, api_contract, shared_dependency, or event_schema.
+                </div>
+
+                <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong style="font-size: 1.1em;">3️⃣ Graph Impact Agent</strong><br/>
+                    Uses NetworkX to traverse the dependency graph and find all affected services, APIs, databases, and Kafka events.
+                </div>
+
+                <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong style="font-size: 1.1em;">4️⃣ Hybrid RAG Agent</strong><br/>
+                    <strong>Vector RAG:</strong> FAISS searches similar past incidents<br/>
+                    <strong>Vectorless RAG:</strong> Exact rule checking (Java version, memory safety, null constraints, etc.)
+                </div>
+
+                <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong style="font-size: 1.1em;">5️⃣ Memory Graph Agent</strong><br/>
+                    Looks up prior deployment outcomes for the same service or similar change type to learn from history.
+                </div>
+
+                <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong style="font-size: 1.1em;">6️⃣ Risk & Rollout Agent</strong><br/>
+                    Deterministic scoring (0-100) based on service criticality, affected count, incidents, rule violations, and memory graph failures.
+                </div>
+
+                <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea; grid-column: 1/-1;">
+                    <strong style="font-size: 1.1em;">7️⃣ LLM Explanation Agent</strong><br/>
+                    Local Qwen2.5 (via Ollama on AMD hardware) generates plain-English risk explanation and 3 concrete remediation steps. Falls back to rule-based summaries if LLM is offline.
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>⚡ ChangeGuardian AI</strong> | Powered by LangGraph, FAISS Vector RAG, NetworkX, and Local Ollama</p>
+            <p>✓ Notebook executed successfully with 6 demo scenarios | ✓ All 7 agents completed | ✓ Pipeline latency: ~2.1s per analysis</p>
+        </div>
+    </div>
+</body>
+</html>

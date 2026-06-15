@@ -1,0 +1,94 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+.hypothesis/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Gradio/Streamlit
+.gradio_cached_examples/
+.streamlit/
+
+# Local config
+.env
+.env.local
+config.local.json
+settings.local.json
+
+# Model cache
+models/cache/
+~/.cache/sentence-transformers
+~/.cache/huggingface
+
+# Data
+data/local/
+*.sqlite
+*.db
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+.tmp/
+temp/
+
+# OS
+Thumbs.db
+.DS_Store
+*.exe
+*.lnk
+
+# GPU/ROCM artifacts
+*.rocm
+*.hip
+*.co
+
+# vLLM cache
+vllm_cache/
+.vllm/

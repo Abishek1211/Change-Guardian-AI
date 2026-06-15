@@ -1,0 +1,48 @@
+# ChangeGuardian AI - Production Deployment Risk Analysis
+# AMD ROCM vLLM Optimized Dependencies
+
+# Core Framework & LLM Integration
+langgraph>=0.0.30
+langchain-core>=0.1.0
+vllm>=0.4.0              # AMD ROCM optimized inference engine
+ollama>=0.1.0            # Alternative: Local Ollama client (fallback)
+
+# Data Processing & ML
+networkx>=3.0            # Graph analysis for service dependencies
+numpy>=2.0.0             # Core numerical computing
+scipy>=1.12.0            # Scientific computing
+pandas>=2.0.0            # Data manipulation
+
+# Vector Search & NLP
+faiss-cpu>=1.7.4         # Vector similarity search (FAISS)
+sentence-transformers>=2.2.2  # Embedding models for semantic search
+scikit-learn>=1.5.0      # Machine learning utilities
+
+# Web Interface & Visualization
+gradio>=4.20.0           # Interactive web UI
+streamlit>=1.28.0        # Alternative: Dashboard UI (optional)
+
+# System & Utilities
+psutil>=5.9.0            # System resource monitoring
+requests>=2.31.0         # HTTP client
+pydantic>=2.0.0          # Data validation
+pyyaml>=6.0              # YAML config support
+python-dotenv>=1.0.0     # Environment variable management
+
+# AMD GPU Support (Optional - for ROCM acceleration)
+# For AMD ROCM, use: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.8
+# Uncomment below if using ROCM GPU acceleration
+# torch>=2.0.0+rocm5.8
+# onnxruntime-rocm>=1.15.0
+
+# Development & Testing (Optional)
+jupyter>=1.0.0           # Jupyter notebooks
+ipython>=8.0.0           # Enhanced Python shell
+pytest>=7.0.0            # Testing framework
+pytest-asyncio>=0.21.0   # Async testing support
+black>=23.0.0            # Code formatting
+pylint>=2.17.0           # Code linting
+
+# Performance Profiling (Optional)
+py-spy>=0.3.14          # Profiling tool
+memory-profiler>=0.61.0  # Memory usage analysis
