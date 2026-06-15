@@ -7,7 +7,7 @@ import gradio as gr
 import json
 import time
 import psutil
-from changeguardian_enhanced_notebook import (
+from changeguardian_enhanced import (
     workflow, OLLAMA_MODEL, MODEL_CONFIG, OLLAMA_READY,
     ram_gb, cpu_cores, services, incident_docs, memory_graph,
     get_affected_services

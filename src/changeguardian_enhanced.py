@@ -247,18 +247,26 @@ def get_affected_services(service_name: str) -> list:
 
 print(f"[OK] Graph built: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
 
-# FAISS Vector RAG
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-corpus = [f"{d['title']}. {d['root_cause']} Lesson: {d['lesson']}" for d in incident_docs]
-vecs = embedder.encode(corpus, convert_to_numpy=True, show_progress_bar=False).astype("float32")
-faiss.normalize_L2(vecs)
-faiss_index = faiss.IndexFlatIP(vecs.shape[1])
-faiss_index.add(vecs)
+# FAISS Vector RAG (lazy-loaded on first use)
+_embedder = None
+_faiss_index = None
+
+def _init_faiss():
+    global _embedder, _faiss_index
+    if _embedder is None:
+        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+        corpus = [f"{d['title']}. {d['root_cause']} Lesson: {d['lesson']}" for d in incident_docs]
+        vecs = _embedder.encode(corpus, convert_to_numpy=True, show_progress_bar=False).astype("float32")
+        faiss.normalize_L2(vecs)
+        _faiss_index = faiss.IndexFlatIP(vecs.shape[1])
+        _faiss_index.add(vecs)
+        print(f"[OK] FAISS index ready: {_faiss_index.ntotal} vectors")
 
 def search_incidents(query: str, k: int = 3) -> list:
-    qv = embedder.encode([query], convert_to_numpy=True).astype("float32")
+    _init_faiss()
+    qv = _embedder.encode([query], convert_to_numpy=True).astype("float32")
     faiss.normalize_L2(qv)
-    scores, indices = faiss_index.search(qv, min(k, len(incident_docs)))
+    scores, indices = _faiss_index.search(qv, min(k, len(incident_docs)))
     results = []
     for score, idx in zip(scores[0], indices[0]):
         if idx >= 0:
@@ -266,8 +274,6 @@ def search_incidents(query: str, k: int = 3) -> list:
             doc["sim"] = round(float(score), 3)
             results.append(doc)
     return results
-
-print(f"[OK] FAISS index ready: {faiss_index.ntotal} vectors")
 
 # ============================================================================
 # ENHANCED LLM SYSTEM PROMPTS (leverage larger model reasoning)

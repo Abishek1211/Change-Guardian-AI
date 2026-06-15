@@ -46,7 +46,13 @@ pip install -r requirements.txt -q
 echo "📦 Installing PyTorch..."
 if [ "$SETUP_TYPE" = "rocm" ]; then
     echo "  → Installing PyTorch with AMD ROCM 5.8 support"
+    echo "     (This may take 2-5 minutes, ~2GB download)"
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.8 -q
+    if [ $? -eq 0 ]; then
+        echo "  ✅ PyTorch ROCM installed"
+    else
+        echo "  ⚠️  PyTorch ROCM installation had issues (continuing anyway)"
+    fi
 
     # Optional: ONNX Runtime with ROCM
     echo "  → Installing ONNX Runtime for ROCM (optional)"
@@ -54,7 +60,13 @@ if [ "$SETUP_TYPE" = "rocm" ]; then
 
 elif [ "$SETUP_TYPE" = "cpu" ]; then
     echo "  → Installing PyTorch CPU-only"
+    echo "     (This may take 2-5 minutes, ~1GB download)"
     pip install torch torchvision torchaudio -q
+    if [ $? -eq 0 ]; then
+        echo "  ✅ PyTorch CPU installed"
+    else
+        echo "  ⚠️  PyTorch installation had issues (continuing anyway)"
+    fi
 fi
 
 # Download embedding model
