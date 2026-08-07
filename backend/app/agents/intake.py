@@ -40,6 +40,11 @@ def _resolve_owner(lowered: str, candidates: dict[str, str]) -> tuple[str, str] 
 
 _MEMORY_RE = re.compile(r"from\s+(\d+(?:\.\d+)?)\s*GB\s+to\s+(\d+(?:\.\d+)?)\s*GB", re.I)
 _API_FIELD_RE = re.compile(r"field\s+from\s+(\w+)\s+to\s+(\w+)", re.I)
+# "from Spring Boot 2.7 to 3.2" - the version is not the first token after
+# "from", so skip any product name in between and anchor on a digit. Without
+# this the flagship example extracts nothing and the Java/jakarta violations
+# never fire.
+_VERSION_RE = re.compile(r"from\s+(?:[\w.\- ]*?\s)?(\d[\w.]*)\s+to\s+(\d[\w.]*)", re.I)
 _GENERIC_RE = re.compile(r"from\s+([\w.]+)\s+to\s+([\w.]+)", re.I)
 _NOT_NULL_RE = re.compile(r"NOT NULL constraint to\s+([\w.]+)", re.I)
 _CONSTRAINT_RE = re.compile(r"constraint\s+to\s+([\w.]+)", re.I)
@@ -90,7 +95,7 @@ def intake_agent(state: dict) -> dict:
         old_value, new_value = match.group(1), match.group(2)
 
     if not old_value:
-        match = _GENERIC_RE.search(request)
+        match = _VERSION_RE.search(request) or _GENERIC_RE.search(request)
         if match:
             old_value, new_value = match.group(1), match.group(2)
 

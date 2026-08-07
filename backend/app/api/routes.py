@@ -62,10 +62,12 @@ async def analyze_stream(
     """
 
     async def event_source():
+        # Do not poll request.is_disconnected() here. EventSourceResponse runs
+        # its own disconnect listener on the ASGI receive channel, and a second
+        # consumer steals the message it waits for - the check then reports a
+        # disconnect on the first iteration and the stream closes empty. Client
+        # departure is handled by sse_starlette cancelling this generator.
         async for event in stream_analysis(change_request):
-            # Client disconnected (closed tab, navigated away) - stop working.
-            if await request.is_disconnected():
-                break
             yield {"event": event["event"], "data": json.dumps(event, default=str)}
 
     return EventSourceResponse(event_source())

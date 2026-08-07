@@ -59,6 +59,32 @@ def test_all_scenarios_classify_and_score():
             f"{request!r} scored {report['risk_score']}, expected >= {min_score}"
 
 
+def test_versions_extract_from_product_name_phrasing():
+    """Regression: "from Spring Boot 2.7 to 3.2" puts a product name between
+    "from" and the version. The original regex anchored on the first token and
+    silently extracted nothing, which disabled every version-dependent rule -
+    the flagship example scored 85 instead of 100 with no violations listed."""
+    report = run_analysis("Upgrade payment-service from Spring Boot 2.7 to 3.2")
+
+    violations = " | ".join(report["rule_violations"])
+    assert "JAVA_MISMATCH" in violations, \
+        f"Java 11 vs Spring Boot 3 must be flagged, got: {report['rule_violations']}"
+    assert "jakarta" in violations, "javax->jakarta migration must be flagged"
+
+    reasons = " | ".join(report["risk_reasons"])
+    assert "Java mismatch" in reasons
+    assert "Spring Boot 3.x breaking migration" in reasons
+
+
+def test_scenario_specific_rules_actually_fire():
+    """Every scenario must produce at least one violation on its demo request.
+    A scenario that silently scores generic risk looks fine and is useless."""
+    for request, scenario, *_ in CASES:
+        report = run_analysis(request)
+        assert report["rule_violations"], \
+            f"{scenario} produced no rule violations for {request!r}"
+
+
 def test_report_has_full_contract():
     report = run_analysis(CASES[0][0])
     missing = REQUIRED_REPORT_KEYS - set(report)

@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+@import 'reactflow/dist/style.css';
+
+/* An SRE tool, not a consumer app: dark, dense, monospaced where it carries
+   data. Restrained slate with a single emerald accent - risk severity is the
+   only thing allowed to use colour loudly, because it is the only thing that
+   should pull the eye. */
+@theme {
+  --color-ink-950: #080b11;
+  --color-ink-900: #0d121b;
+  --color-ink-850: #121926;
+  --color-ink-800: #18202f;
+  --color-ink-700: #232d40;
+  --color-ink-600: #33405a;
+
+  --color-accent: #34d399;
+
+  --color-risk-low: #34d399;
+  --color-risk-medium: #fbbf24;
+  --color-risk-high: #fb923c;
+  --color-risk-critical: #f87171;
+
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ink-950);
+  color: #cbd5e1;
+  font-feature-settings: 'tnum' 1;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-ink-900);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-600);
+}
+
+/* React Flow renders its own chrome; align it with the panel palette. */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__controls-button {
+  background: var(--color-ink-800);
+  border-bottom: 1px solid var(--color-ink-700);
+  fill: #94a3b8;
+}
+.react-flow__controls-button:hover {
+  background: var(--color-ink-700);
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgb(52 211 153 / 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgb(52 211 153 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(52 211 153 / 0);
+  }
+}
+.running {
+  animation: pulse-ring 1.4s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .running {
+    animation: none;
+  }
+}
