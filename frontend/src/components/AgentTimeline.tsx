@@ -50,7 +50,7 @@ const DOT: Record<AgentRun['status'], string> = {
 
 export function AgentTimeline({ agents }: { agents: AgentRun[] }) {
   return (
-    <section className="rounded border border-ink-800 bg-ink-900">
+    <section data-shot="pipeline" className="rounded border border-ink-800 bg-ink-900">
       <h2 className="border-b border-ink-800 px-4 py-2.5 text-xs tracking-widest text-slate-500 uppercase">
         Pipeline
       </h2>

@@ -23,7 +23,7 @@ export function RiskScore({ report }: { report: Report }) {
   const maxPoints = Math.max(...report.risk_reasons.map(pointsOf), 1)
 
   return (
-    <section className={`rounded border ${style.ring} bg-ink-900`}>
+    <section data-shot="risk-score" className={`rounded border ${style.ring} bg-ink-900`}>
       <div className="flex flex-wrap items-center gap-x-8 gap-y-4 p-5">
         <div className="flex items-baseline gap-2">
           <span className={`font-mono text-6xl leading-none font-semibold ${style.text}`}>

@@ -17,6 +17,7 @@ export default function App() {
   const [running, setRunning] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
+  const autoRunRef = useRef(false)
 
   useEffect(() => {
     fetchGraph().then(setGraph).catch(() => setGraph(null))
@@ -31,6 +32,19 @@ export default function App() {
   // Abort an in-flight stream if the component unmounts mid-analysis.
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  // `?q=<change request>` runs on load, so an analysis is a shareable link.
+  // The ref guards against StrictMode's double effect invocation in dev.
+  useEffect(() => {
+    if (autoRunRef.current) return
+    const query = new URLSearchParams(window.location.search).get('q')?.trim()
+    if (!query) return
+    autoRunRef.current = true
+    setChangeRequest(query)
+    analyse(query)
+    // analyse is intentionally omitted: this must fire once, on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const analyse = useCallback(
     (request: string) => {
       const trimmed = request.trim()
@@ -44,6 +58,11 @@ export default function App() {
       setError(null)
       setReport(null)
       setAgents([])
+
+      // Keep the address bar in sync so the current analysis can be copied and
+      // shared. replaceState rather than pushState - re-running an analysis is
+      // not a navigation and should not stack up back-button entries.
+      window.history.replaceState(null, '', `?q=${encodeURIComponent(trimmed)}`)
 
       void streamAnalysis(
         trimmed,

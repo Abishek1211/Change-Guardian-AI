@@ -129,7 +129,10 @@ export function BlastRadiusGraph({
   }, [graph, origin, affected])
 
   return (
-    <section className="flex h-[460px] flex-col rounded border border-ink-800 bg-ink-900">
+    <section
+      data-shot="blast-radius"
+      className="flex h-[460px] flex-col rounded border border-ink-800 bg-ink-900"
+    >
       <div className="flex items-center justify-between border-b border-ink-800 px-4 py-2.5">
         <h2 className="text-xs tracking-widest text-slate-500 uppercase">Blast radius</h2>
         <div className="flex items-center gap-3 font-mono text-[10px] text-slate-600">
