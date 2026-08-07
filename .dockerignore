@@ -1,0 +1,21 @@
+# Keep the build context small - it is uploaded to the daemon on every build.
+.git
+.gitignore
+.env
+*.md
+!README.md
+
+# Never bake a key into an image layer.
+.env.*
+
+frontend/node_modules
+frontend/dist
+backend/app/static
+backend/app/rag/incident_vectors.npz
+
+**/__pycache__
+**/*.pyc
+.venv
+venv
+.vscode
+.idea

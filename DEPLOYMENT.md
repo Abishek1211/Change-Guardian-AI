@@ -1,458 +1,115 @@
-# ChangeGuardian AI - Hackathon Submission Package
+# Deployment
 
-> **Complete, ready-to-run deployment risk analyzer** for AMD ROCM vLLM environments
+Target: an Oracle `VM.Standard.A1.Flex` instance (4 ARM OCPU, 24 GB, no GPU)
+already running Dokploy behind Traefik, shared with other applications. Ports
+22, 80, and 443 only.
 
----
+Everything builds for `linux/arm64`, **on the server** rather than cross-built
+from a dev machine.
 
-## 📦 What's Included
+## 1. Get a Groq key
 
-This package contains everything needed to run ChangeGuardian AI:
+`console.groq.com/keys` — free, no card. The key is account-wide; the model is
+chosen by configuration, not at key creation.
 
-✅ **Source Code**
-- 7-agent LangGraph pipeline
-- FAISS vector RAG + rule-based RAG
-- NetworkX service dependency analysis
-- Local LLM integration (Ollama/vLLM)
-- Interactive Gradio web interface
+Free-tier limits on `llama-3.1-8b-instant` at time of writing: 30 req/min,
+14,400 req/day, **6,000 tokens/min**, 500,000 tokens/day.
 
-✅ **Automated Setup**
-- `setup.sh` (Linux/MacOS)
-- `setup.ps1` (Windows)
-- Virtual environment + dependency installation
-- Model caching
+Tokens per minute is the real ceiling, not requests. One analysis costs roughly
+635 tokens (~500 prompt, ~135 completion), so the quota supports about **9
+analyses per minute across all visitors combined**. The per-IP rate limit is
+lower than that on purpose, and the circuit breaker covers the case where
+several visitors arrive at once. Verify current limits at
+`console.groq.com/docs/rate-limits` — they change.
 
-✅ **Documentation**
-- `README_ROCM_VLLM.md` - Complete setup guide
-- `CHANGEGUARDIAN_README.md` - Feature documentation
-- `QUICKSTART.md` - Quick reference
-- Architecture and API docs
+## 2. Create the Dokploy application
 
-✅ **Examples**
-- CLI usage examples
-- Jupyter notebooks
-- Web UI demo
+1. **New Application** → source: GitHub → `Abishek1211/Change-Guardian-AI`
+2. Build type: **Dockerfile**
+3. Branch: `main`
 
-✅ **Validation**
-- `scripts/validate.py` - Verify setup is correct
+## 3. Environment
 
----
-
-## 🚀 Quick Start (3 Steps)
-
-### Step 1: Extract Package
-```bash
-tar -xzf changeguardian-ai.tar.gz
-cd changeguardian-ai
-```
-
-### Step 2: Run Setup
-```bash
-# For AMD GPU with ROCM:
-bash setup.sh rocm
-
-# For CPU-only:
-bash setup.sh cpu
-```
-
-### Step 3: Run Application
-```bash
-# Activate virtual environment
-source venv/bin/activate  # Linux/Mac
-# OR
-.\venv\Scripts\Activate.ps1  # Windows
-
-# Start web interface
-python src/changeguardian_interactive_demo.py
-
-# Open: http://localhost:7860
-```
-
-That's it! ✨
-
----
-
-## 📁 Directory Structure
+Set these in Dokploy's **Environment** tab. They are never committed — `.env` is
+gitignored and `.dockerignore` excludes it from the build context so a key
+cannot end up in an image layer.
 
 ```
-changeguardian-ai/
-├── src/                              ← Main code
-│   ├── changeguardian_enhanced.py   ← Core 7-agent pipeline
-│   ├── changeguardian_interactive_demo.py  ← Web UI
-│   └── __init__.py                   ← Package initialization
-│
-├── examples/                         ← Usage examples
-│   ├── cli_example.py               ← Command-line usage
-│   └── changeguardian_full_notebook.ipynb  ← Jupyter
-│
-├── scripts/                          ← Utilities
-│   ├── validate.py                  ← Verify setup
-│   ├── setup.sh                     ← Linux/Mac setup
-│   └── setup.ps1                    ← Windows setup
-│
-├── docs/                            ← Documentation
-│   ├── ARCHITECTURE.md              ← System design
-│   └── API_REFERENCE.md             ← API docs
-│
-├── requirements.txt                 ← Dependencies (AMD ROCM optimized)
-├── README_ROCM_VLLM.md             ← Setup & deployment guide
-├── CHANGEGUARDIAN_README.md        ← Feature documentation
-├── DEPLOYMENT.md                   ← This file
-└── .gitignore                      ← Git ignore rules
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_MODEL=llama-3.1-8b-instant
+LLM_API_KEY=gsk_...
+LLM_TIMEOUT_SECONDS=20
+RATE_LIMIT_PER_MINUTE=5
+TRUST_PROXY_HEADERS=true
 ```
 
----
+`TRUST_PROXY_HEADERS` matters. Behind Traefik every request arrives from the
+proxy's address, so without reading `X-Forwarded-For` the rate limiter would
+bucket the entire internet as one client and lock everyone out after five
+requests.
 
-## ⚙️ System Requirements
+Omitting `LLM_API_KEY` is valid — the pipeline runs fully and agent 7 serves the
+deterministic explanation.
 
-### Minimum (CPU-Only)
-- **CPU**: Any modern processor (2+ cores)
-- **RAM**: 16GB
-- **Disk**: 20GB free
-- **Python**: 3.10+
-- **OS**: Linux, MacOS, Windows 10+
+## 4. Domain
 
-### Recommended (AMD GPU)
-- **GPU**: AMD Radeon Pro or EPYC MI series
-- **VRAM**: 8GB+ (for 7B), 24GB+ (for 30B)
-- **System RAM**: 32GB+
-- **Disk**: 30GB+ (models + dependencies)
-- **Python**: 3.10+
-- **OS**: Linux (Ubuntu 20.04+)
+Add `changeguardian.abishekrajavelu.in` in the Domains tab, port `8000`. Traefik
+issues the certificate automatically. Point the DNS A record at the instance
+first, or the ACME challenge fails.
 
----
+## 5. Resource limits
 
-## 🔧 Installation Options
+The box is shared. Set these so a traffic spike here cannot degrade the other
+applications:
 
-### Option A: Automated (Recommended)
+| Setting | Value |
+|---|---|
+| CPU limit | `2.0` (of 4) |
+| Memory limit | `1G` |
+| Memory reservation | `256M` |
 
-#### Linux/MacOS
-```bash
-bash setup.sh rocm    # AMD GPU
-# or
-bash setup.sh cpu     # CPU-only
+Steady-state usage is far below this — the container holds one ONNX session and
+serves a six-row corpus. The limit is a blast wall, not a sizing estimate.
+
+## 6. Healthcheck
+
+Path `/health`, port `8000`.
+
+It returns 200 whenever the process is serving, **including when the LLM
+provider is down**. Provider state is reported in the body instead. Failing the
+healthcheck on an LLM outage would restart a container that is working
+correctly — the deterministic pipeline does not need the model.
+
+```json
+{ "status": "ok",
+  "llm": { "provider": "llama-3.1-8b-instant @ api.groq.com",
+           "breaker": { "state": "closed", "consecutive_failures": 0 } },
+  "retrieval": "faiss (fastembed)" }
 ```
 
-#### Windows
-```powershell
-.\setup.ps1 -SetupType rocm
-# or
-.\setup.ps1 -SetupType cpu
-```
-
-### Option B: Manual
+## Local parity
 
 ```bash
-# Create virtual environment
-python3.10 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or
-.\venv\Scripts\Activate.ps1  # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# (Optional) Install PyTorch with ROCM
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.8
-
-# Verify
-python scripts/validate.py
+docker compose up --build
 ```
 
----
-
-## 🎯 Usage
-
-### 1. Web Interface (Recommended)
-
-```bash
-python src/changeguardian_interactive_demo.py
-
-# Open browser: http://localhost:7860
-```
-
-Features:
-- Interactive input form
-- Real-time analysis results
-- Risk score visualization
-- Remediation recommendations
-- JSON export
-
-### 2. Command-Line
-
-```bash
-python examples/cli_example.py "Upgrade payment-service Spring Boot 2.7 to 3.2"
-
-# Or batch processing:
-python examples/cli_example.py --file changes.txt --output report.json
-```
-
-### 3. Python API
-
-```python
-from src.changeguardian_enhanced import workflow
-
-result = workflow.invoke({
-    "change_request": "Upgrade payment-service from Spring Boot 2.7 to 3.2"
-})
-
-report = result.get("report", {})
-print(f"Risk: {report['risk_score']}/100")
-print(f"Impact: {report['impact_level']}")
-print(f"Recommendation: {report['rollout_plan']}")
-```
-
-### 4. Jupyter Notebook
-
-```bash
-jupyter notebook examples/changeguardian_full_notebook.ipynb
-```
-
----
-
-## ✅ Verification
-
-After installation, verify everything works:
-
-```bash
-# Quick validation
-python scripts/validate.py
-
-# Full validation (with LLM checks)
-python scripts/validate.py --full
-
-# ROCM-specific checks
-python scripts/validate.py --rocm
-```
-
-Expected output:
-```
-✅ Python 3.10.x
-✅ Core Dependencies
-✅ PyTorch [with CUDA/ROCM]
-✅ File Structure
-✅ Import Test
-
-Result: 5/5 checks passed
-```
-
----
-
-## 🚀 Performance
-
-Typical analysis times on AMD Ryzen 5950X (64GB RAM):
-
-| Scenario | Time | Notes |
-|----------|------|-------|
-| Input parsing | ~50ms | Regex-based |
-| Graph analysis | ~100ms | NetworkX traversal |
-| RAG search | ~200ms | FAISS vector search |
-| Risk scoring | ~50ms | Deterministic rules |
-| LLM explanation | 2-20s | Model-dependent |
-| **Total** | **3-25s** | Depends on model size |
-
----
-
-## 🔥 AMD ROCM vLLM Integration
-
-### Using vLLM (Recommended)
-
-```bash
-# Install vLLM with ROCM support
-pip install vllm[rocm]
-
-# Start vLLM server
-python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Llama-2-7b-hf \
-    --tensor-parallel-size 1 \
-    --port 8000
-
-# Application will auto-detect and use vLLM
-```
-
-### Using Ollama (Alternative)
-
-```bash
-# Install Ollama from https://ollama.com/download
-
-# Start Ollama
-ollama serve
-
-# In another terminal, pull model
-ollama pull qwen2.5:7b
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Setup Issues
-
-**Error: Python not found**
-- Install Python 3.10+ from [python.org](https://python.org)
-- Ensure it's in PATH: `python --version`
-
-**Error: venv already exists**
-- Remove it: `rm -rf venv` (or `rmdir venv /s` on Windows)
-- Re-run setup: `bash setup.sh rocm`
-
-**Error: ModuleNotFoundError**
-- Reinstall dependencies: `pip install -r requirements.txt --upgrade`
-- Try `pip install --no-cache-dir -r requirements.txt`
-
-### Runtime Issues
-
-**Error: Ollama connection refused**
-- Start Ollama: `ollama serve` (in separate terminal)
-- Verify: `curl http://localhost:11434`
-- The app will use rule-based fallback if Ollama is unavailable
-
-**Error: ROCM not detected**
-- Check installation: `rocm-smi`
-- Verify PyTorch: `python -c "import torch; print(torch.cuda.is_available())"`
-- Update drivers: Follow [AMD ROCM guide](https://rocmdocs.amd.com)
-
-**Error: Out of Memory (OOM)**
-- Use smaller model: `bash setup.sh cpu`
-- Or reduce batch size in code
-- Or use quantization: `--quantization int8`
-
-### Performance Issues
-
-**Analysis taking >30 seconds**
-- Switch to smaller model (qwen2.5:3b instead of 7b)
-- Use CPU fallback (faster for small models)
-- Check system resources: `htop` / Task Manager
-
----
-
-## 📊 Features
-
-### ✨ Core Capabilities
-
-- **Dynamic Model Selection**: Auto-selects best model based on available RAM
-- **7-Agent Pipeline**: Specialized agents for each analysis step
-- **Vector RAG**: FAISS-based similarity search for incident matching
-- **Rule Engine**: Deterministic checking for Java versions, memory safety, etc.
-- **Graph Analysis**: NetworkX for service dependency mapping
-- **Risk Scoring**: 0-100 scale with detailed breakdowns
-- **LLM Reasoning**: Local models (Ollama/vLLM) for explanations
-- **SLA Tracking**: Identifies critical service risks
-- **Financial Impact**: Estimates cost of potential failures
-
-### 🎯 Scenarios
-
-1. **Framework Upgrade** — Spring Boot, Java runtime migrations
-2. **Resource Change** — Memory/CPU limit adjustments
-3. **Database Schema** — Column changes, migrations
-4. **API Contract** — Field renames, breaking changes
-5. **Shared Dependency** — Library upgrades across services
-6. **Event Schema** — Kafka message contract changes
-
----
-
-## 📚 Documentation
-
-- **[README_ROCM_VLLM.md](README_ROCM_VLLM.md)** — Complete setup guide for AMD ROCM
-- **[CHANGEGUARDIAN_README.md](CHANGEGUARDIAN_README.md)** — Feature details and examples
-- **[QUICKSTART.md](QUICKSTART.md)** — Quick reference guide
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — System design (if available)
-- **[docs/API_REFERENCE.md](docs/API_REFERENCE.md)** — API documentation (if available)
-
----
-
-## 🎓 Example Scenarios
-
-### Example 1: High-Risk Framework Upgrade
-```
-INPUT: Upgrade payment-service from Spring Boot 2.7 to 3.2
-
-OUTPUT:
-  Risk Score: 85/100 (CRITICAL)
-  Affected: 5 services
-  Violations: Java mismatch, breaking API changes
-  Similar Incident: INC-002 (Spring Boot 3 migration, $500K impact)
-  Recommendation: DEPLOYMENT BLOCKED - Resolve violations first
-  
-  Remediation:
-  1. Upgrade Java to 17+
-  2. Run javax→jakarta migration
-  3. Run full integration tests
-```
-
-### Example 2: Memory Reduction (Dangerous)
-```
-INPUT: Reduce checkout-service memory from 2GB to 1GB
-
-OUTPUT:
-  Risk Score: 100/100 (CRITICAL)
-  Peak Memory: 1.8GB (safe floor: 2.16GB)
-  Violations: Memory unsafe, high restart risk
-  Similar Incident: INC-001 (OOMKilled, $250K impact)
-  Recommendation: DEPLOYMENT BLOCKED - Will fail
-```
-
-### Example 3: API Field Rename (Medium Risk)
-```
-INPUT: Change API response field from customer_id to customerId
-
-OUTPUT:
-  Risk Score: 55/100 (HIGH)
-  Affected: 3 services
-  Violations: Breaking API change
-  Similar Incident: INC-004 (API rename broke checkout, P2)
-  Recommendation: STAGED ROLLOUT - Deploy region-by-region
-  
-  Remediation:
-  1. Add backward-compatible alias
-  2. Version API endpoint (/v2/)
-  3. Notify consumer teams + migration timeline
-```
-
----
-
-## 🎯 Submission Checklist
-
-Before submitting to hackathon:
-
-- [ ] ✅ Setup script runs without errors
-- [ ] ✅ `python scripts/validate.py` passes all checks
-- [ ] ✅ Web UI loads at `http://localhost:7860`
-- [ ] ✅ Sample analysis completes in <30s
-- [ ] ✅ Risk score is accurate and justified
-- [ ] ✅ README is clear and comprehensive
-- [ ] ✅ No API keys or credentials in code
-- [ ] ✅ Project packaged: `tar -czf changeguardian-ai.tar.gz .`
-- [ ] ✅ File size is reasonable (<200MB)
-- [ ] ✅ Demo video prepared (walkthrough of features)
-- [ ] ✅ PowerPoint presentation created
-
----
-
-## 📞 Support
-
-For issues:
-1. Check [Troubleshooting](#troubleshooting) section
-2. Run `python scripts/validate.py --full`
-3. Check logs in `logs/` directory
-4. Review README_ROCM_VLLM.md for detailed setup
-
----
-
-## 📄 License
-
-Internal Hackathon Project — Not for external distribution
-
----
-
-## 🙏 Credits
-
-Built by ChangeGuardian Team for AMD ROCM vLLM Hackathon 2026
-
-**Last Updated**: June 15, 2026  
-**Status**: ✅ Ready for Submission  
-
----
-
-**You're all set!** 🚀
-
-Run `python src/changeguardian_interactive_demo.py` and open http://localhost:7860
+Reads `.env`, exposes `http://localhost:8000`. Same image the server builds.
+
+## Build notes
+
+- The build compiles the frontend in a Node stage and copies only the output
+  into the Python runtime — no Node in the final image.
+- `prebuild_index.py` runs during the build to download the ONNX model and embed
+  the corpus, so the running container never reaches HuggingFace and the first
+  request does not pay a 90 MB download.
+- The corpus vector cache is fingerprinted by corpus text plus model name. Edit
+  the incidents in `backend/app/data/` and the cache is ignored and recomputed
+  rather than silently serving stale vectors.
+- Expect a slow first build on 4 OCPUs — mostly `npm ci` and the ONNX download.
+  Rebuilds reuse cached layers unless dependencies change.
+
+## Rollback
+
+Dokploy keeps previous deployments; redeploy an earlier one from the
+Deployments tab. Tagged releases correspond to `main` commits, so
+`git checkout v2.0.0` reproduces a known-good tree.
