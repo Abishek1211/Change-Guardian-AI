@@ -34,22 +34,28 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# Create the unprivileged user up front. Doing this last and running
+# `chown -R` afterwards would rewrite every file into a new layer - which
+# duplicated the 91 MB ONNX model and added ~92 MB to the image for nothing.
+# Establishing ownership before the files exist costs zero extra layers.
+RUN useradd --create-home --uid 10001 guardian \
+    && mkdir -p /opt/models \
+    && chown guardian:guardian /opt/models /app
+
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/app ./app
-COPY backend/scripts ./scripts
+COPY --chown=guardian:guardian backend/app ./app
+COPY --chown=guardian:guardian backend/scripts ./scripts
+COPY --from=frontend --chown=guardian:guardian /build/dist ./app/static
+
+# Drop privileges before the prebuild, so the model cache and vector file are
+# written as the user that will read them at runtime.
+USER guardian
 
 # Download the ONNX model and embed the incident corpus at build time, so the
 # container never reaches HuggingFace at runtime and the first request is fast.
 RUN python scripts/prebuild_index.py
-
-COPY --from=frontend /build/dist ./app/static
-
-# Drop privileges. /opt/models and the vector cache are read-only at runtime.
-RUN useradd --create-home --uid 10001 guardian \
-    && chown -R guardian:guardian /app /opt/models
-USER guardian
 
 EXPOSE 8000
 
