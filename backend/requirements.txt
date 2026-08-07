@@ -1,0 +1,23 @@
+# ChangeGuardian AI - backend runtime
+# Targets linux/arm64 (Oracle VM.Standard.A1.Flex). Every pin below must
+# resolve a prebuilt aarch64 wheel; no source builds on 4 OCPUs.
+
+# Agent pipeline
+langgraph>=0.2.0
+langchain-core>=0.3.0
+networkx>=3.2
+numpy>=2.0.0
+
+# LLM access (agent 7) - OpenAI-compatible: Groq, Gemini, or local Ollama
+openai>=1.55.0
+
+# API layer
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sse-starlette>=2.1.0
+slowapi>=0.1.9
+pydantic>=2.9.0
+python-dotenv>=1.0.0
+
+# Retrieval (agent 4) is added in the embedding-swap step; sentence-transformers
+# pulls PyTorch and is not viable on this box.
