@@ -19,5 +19,11 @@ slowapi>=0.1.9
 pydantic>=2.9.0
 python-dotenv>=1.0.0
 
-# Retrieval (agent 4) is added in the embedding-swap step; sentence-transformers
-# pulls PyTorch and is not viable on this box.
+# Retrieval (agent 4)
+# fastembed runs the same all-MiniLM-L6-v2 model on ONNX instead of PyTorch:
+# pure-Python wheel over onnxruntime, ~400 MB image instead of ~2.5 GB, and no
+# 20-minute torch build on 4 OCPUs. sentence-transformers stays supported via
+# EMBEDDING_BACKEND for dev machines that already have it, but is not installed.
+fastembed>=0.8.0
+# 1.15.0 publishes manylinux_2_28_aarch64 wheels - verified, no source build.
+faiss-cpu>=1.15.0

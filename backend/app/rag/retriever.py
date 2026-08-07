@@ -11,17 +11,34 @@ matrix is already optimal, and IndexFlatIP does exactly that internally.
 
 from __future__ import annotations
 
+import hashlib
+import logging
 import threading
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from ..data import incident_docs
-from .embeddings import Embedder, load_embedder
+from .embeddings import MODEL_NAME, Embedder, load_embedder
+
+logger = logging.getLogger(__name__)
+
+# Written by backend/scripts/prebuild_index.py during the Docker build.
+VECTOR_CACHE = Path(__file__).resolve().parent / "incident_vectors.npz"
 
 
 def _corpus_text(doc: dict[str, Any]) -> str:
     return f"{doc['title']}. {doc['root_cause']} Lesson: {doc['lesson']}"
+
+
+def corpus_fingerprint(docs: list[dict[str, Any]], model_name: str = MODEL_NAME) -> str:
+    """Identifies the corpus *and* the model that embedded it. A cache built
+    from different text, or by a different model, must not be reused."""
+    digest = hashlib.sha256(model_name.encode())
+    for doc in docs:
+        digest.update(_corpus_text(doc).encode())
+    return digest.hexdigest()
 
 
 class IncidentRetriever:
@@ -43,7 +60,9 @@ class IncidentRetriever:
                 return
 
             embedder = load_embedder()
-            vectors = embedder.encode([_corpus_text(d) for d in self._docs])
+            vectors = self._load_cached_vectors()
+            if vectors is None:
+                vectors = embedder.encode([_corpus_text(d) for d in self._docs])
 
             index = None
             backend = f"numpy ({embedder.name})"
@@ -60,6 +79,24 @@ class IncidentRetriever:
             self._index = index
             self._vectors = vectors
             self._backend = backend
+
+    def _load_cached_vectors(self) -> np.ndarray | None:
+        """Use the prebuilt corpus vectors if they match the current corpus."""
+        if not VECTOR_CACHE.is_file():
+            return None
+        try:
+            with np.load(VECTOR_CACHE) as cached:
+                if str(cached["fingerprint"]) != corpus_fingerprint(self._docs):
+                    logger.warning("Ignoring stale vector cache at %s", VECTOR_CACHE)
+                    return None
+                vectors = cached["vectors"].astype("float32")
+        except (OSError, KeyError, ValueError) as exc:
+            logger.warning("Could not read vector cache: %s", exc)
+            return None
+
+        if vectors.shape[0] != len(self._docs):
+            return None
+        return vectors
 
     # ----------------------------------------------------------------- search
 

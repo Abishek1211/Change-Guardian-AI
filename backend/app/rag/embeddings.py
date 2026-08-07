@@ -46,7 +46,11 @@ class FastEmbedBackend:
     def __init__(self, model_name: str = MODEL_NAME) -> None:
         from fastembed import TextEmbedding
 
-        self._model = TextEmbedding(model_name=model_name)
+        # The Docker build populates this cache so the container never reaches
+        # HuggingFace at runtime - a first request that downloads 90 MB is the
+        # difference between a 2-second and a 40-second first impression.
+        cache_dir = os.getenv("FASTEMBED_CACHE_PATH") or None
+        self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir)
 
     def encode(self, texts: list[str]) -> np.ndarray:
         return _normalise(np.array(list(self._model.embed(texts))))
