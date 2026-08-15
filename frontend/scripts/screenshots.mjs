@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import { platform } from 'node:os'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import puppeteer from 'puppeteer-core'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -59,6 +59,15 @@ const SHOTS = [
     request: 'Remove customerEmail field from order-created Kafka event',
     selector: '[data-shot="pipeline"]',
   },
+  {
+    // Hover isolation: dims everything but the hovered node's own edges and
+    // labels them with the relationship, which is the answer to "why is this
+    // service in the blast radius?"
+    name: 'blast-radius-hover',
+    request: 'Upgrade payment-service from Spring Boot 2.7 to 3.2',
+    selector: '[data-shot="blast-radius"]',
+    hover: '.react-flow__node[data-id="checkout-service"]',
+  },
 ]
 
 function findChrome() {
@@ -87,6 +96,18 @@ async function main() {
     // where most people will read the README.
     await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 })
 
+    // The social preview is rendered from a purpose-built card, not the app.
+    // Link previews display around 500px wide, where real UI text is unreadable.
+    const ogPage = await browser.newPage()
+    await ogPage.setViewport({ width: 1200, height: 630, deviceScaleFactor: 1 })
+    await ogPage.goto(pathToFileURL(resolve(HERE, 'og-card.html')).href, {
+      waitUntil: 'networkidle0',
+    })
+    const ogPath = resolve(HERE, '../public/og-image.png')
+    await ogPage.screenshot({ path: ogPath })
+    await ogPage.close()
+    console.log('wrote og-image.png')
+
     for (const shot of SHOTS) {
       const url = `${BASE_URL}/?q=${encodeURIComponent(shot.request)}`
       await page.goto(url, { waitUntil: 'networkidle2' })
@@ -104,6 +125,20 @@ async function main() {
       const target = shot.selector ? await page.$(shot.selector) : page
       if (!target) throw new Error(`selector not found: ${shot.selector}`)
 
+      if (shot.hover) {
+        // Dispatch the event rather than using page.hover(). A real cursor
+        // move does not reach React's handler under headless shell, and an
+        // element screenshot scrolls the page afterwards - which would move
+        // the cursor off the node and clear the hover before capture. React
+        // synthesises onMouseEnter from mouseover, so this is equivalent and
+        // survives the scroll.
+        await page.evaluate((sel) => {
+          document
+            .querySelector(sel)
+            ?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+        }, shot.hover)
+        await new Promise((done) => setTimeout(done, 450))
+      }
       const path = resolve(OUT_DIR, `${shot.name}.png`)
       await target.screenshot({ path, fullPage: shot.fullPage ?? false })
       console.log(`wrote ${shot.name}.png`)
