@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -72,6 +72,23 @@ export function BlastRadiusGraph({
   origin: string | null
   affected: string[]
 }) {
+  // Hovering a node isolates it. The graph shows *which* services are affected;
+  // this is how you find out *why* a particular one is in the set.
+  const [hovered, setHovered] = useState<string | null>(null)
+
+  const onNodeEnter = useCallback((_: unknown, node: Node) => setHovered(node.id), [])
+  const onNodeLeave = useCallback(() => setHovered(null), [])
+
+  const neighbours = useMemo(() => {
+    if (!graph || !hovered) return null
+    const near = new Set<string>([hovered])
+    for (const edge of graph.edges) {
+      if (edge.source === hovered) near.add(edge.target)
+      if (edge.target === hovered) near.add(edge.source)
+    }
+    return near
+  }, [graph, hovered])
+
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [] as Node[], edges: [] as Edge[] }
 
@@ -106,27 +123,47 @@ export function BlastRadiusGraph({
         data: { label: node.id, ring: r, kind: node.type, criticality: node.criticality },
         draggable: true,
         selectable: false,
+        style: {
+          opacity: neighbours && !neighbours.has(node.id) ? 0.12 : 1,
+          transition: 'opacity 140ms ease',
+        },
       }
     })
 
     const edges: Edge[] = graph.edges.map((edge, i) => {
       const hot = impacted.has(edge.source) && impacted.has(edge.target)
       const touchesOrigin = edge.source === origin || edge.target === origin
+      const touchesHover = hovered === edge.source || hovered === edge.target
+
+      // While hovering, only the hovered node's own edges stay visible - and
+      // they carry their relationship label, which is the actual answer to
+      // "why is this service affected?"
+      const dimmed = hovered !== null && !touchesHover
+      const stroke = touchesHover ? '#34d399' : hot ? '#f87171' : '#1e293b'
+
       return {
         id: `${edge.source}-${edge.rel}-${edge.target}-${i}`,
         source: edge.source,
         target: edge.target,
-        animated: hot && touchesOrigin,
+        animated: touchesHover || (hot && touchesOrigin && hovered === null),
+        label: touchesHover ? edge.rel : undefined,
+        labelShowBg: true,
+        labelBgPadding: [5, 2] as [number, number],
+        labelBgBorderRadius: 3,
+        labelBgStyle: { fill: '#0d121b', fillOpacity: 0.95 },
+        labelStyle: { fill: '#34d399', fontSize: 9, fontFamily: 'ui-monospace, monospace' },
         style: {
-          stroke: hot ? '#f87171' : '#1e293b',
-          strokeWidth: hot ? 1.6 : 1,
-          opacity: hot ? 0.85 : 0.35,
+          stroke,
+          strokeWidth: touchesHover ? 1.8 : hot ? 1.6 : 1,
+          opacity: dimmed ? 0.06 : touchesHover ? 0.95 : hot ? 0.85 : 0.35,
+          transition: 'opacity 140ms ease',
         },
+        zIndex: touchesHover ? 10 : 0,
       }
     })
 
     return { nodes, edges }
-  }, [graph, origin, affected])
+  }, [graph, origin, affected, hovered, neighbours])
 
   return (
     <section
@@ -134,7 +171,12 @@ export function BlastRadiusGraph({
       className="flex h-[460px] flex-col rounded border border-ink-800 bg-ink-900"
     >
       <div className="flex items-center justify-between border-b border-ink-800 px-4 py-2.5">
-        <h2 className="text-xs tracking-widest text-slate-500 uppercase">Blast radius</h2>
+        <h2 className="text-xs tracking-widest text-slate-500 uppercase">
+          Blast radius
+          <span className="ml-2 hidden normal-case tracking-normal text-slate-700 sm:inline">
+            — hover a node to trace its dependencies
+          </span>
+        </h2>
         <div className="flex items-center gap-3 font-mono text-[10px] text-slate-600">
           <Legend className="bg-accent" label="changed" />
           <Legend className="bg-risk-critical" label={`affected (${affected.length})`} />
@@ -148,6 +190,8 @@ export function BlastRadiusGraph({
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
+            onNodeMouseEnter={onNodeEnter}
+            onNodeMouseLeave={onNodeLeave}
             fitView
             fitViewOptions={{ padding: 0.15 }}
             minZoom={0.2}

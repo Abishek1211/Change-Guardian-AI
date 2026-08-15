@@ -7,6 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-arm64-2496ED?logo=docker&logoColor=white)
+![CI](https://github.com/Abishek1211/Change-Guardian-AI/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 Describe a deployment in plain English and get back a 0–100 risk score, the blast
@@ -60,6 +61,12 @@ depends on it. The changed service sits at the centre, affected services in the
 near ring, untouched services and infrastructure beyond:
 
 ![Blast radius graph](docs/screenshots/blast-radius.png)
+
+Hovering a node isolates it — everything else dims and its own edges are labelled
+with the relationship. That is what answers *why* a service is in the blast
+radius, rather than just telling you that it is:
+
+![Hovering a node traces its dependencies](docs/screenshots/blast-radius-hover.png)
 
 ## Tech Stack
 
