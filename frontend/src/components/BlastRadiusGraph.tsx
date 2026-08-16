@@ -152,13 +152,18 @@ export function BlastRadiusGraph({
         labelBgBorderRadius: 3,
         labelBgStyle: { fill: '#0d121b', fillOpacity: 0.95 },
         labelStyle: { fill: '#34d399', fontSize: 9, fontFamily: 'ui-monospace, monospace' },
+        // React Flow draws an invisible 20px-wide interaction path over every
+        // edge so they are easy to click. We never interact with edges, and
+        // those fat hit-areas sit on top of the nodes - hovering a node landed
+        // on an edge instead, which cleared the hover, which removed the edge
+        // styling, which restored the hover: a ~15Hz flicker. Zero disables it.
+        interactionWidth: 0,
         style: {
           stroke,
           strokeWidth: touchesHover ? 1.8 : hot ? 1.6 : 1,
           opacity: dimmed ? 0.06 : touchesHover ? 0.95 : hot ? 0.85 : 0.35,
           transition: 'opacity 140ms ease',
         },
-        zIndex: touchesHover ? 10 : 0,
       }
     })
 
