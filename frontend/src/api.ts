@@ -1,4 +1,4 @@
-import type { Example, Report, ServiceGraph } from './types'
+import type { Example, KnownVocabulary, Report, ServiceGraph, Unrecognised } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -16,7 +16,8 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export const fetchGraph = () => getJson<ServiceGraph>('/api/services')
-export const fetchExamples = () => getJson<{ examples: Example[] }>('/api/examples')
+export const fetchExamples = () =>
+  getJson<{ examples: Example[]; known: KnownVocabulary }>('/api/examples')
 
 export interface StreamHandlers {
   onStart: (agents: { key: string; label: string; description: string; index: number }[]) => void
@@ -29,6 +30,9 @@ export interface StreamHandlers {
     error?: string
   }) => void
   onComplete: (report: Report) => void
+  /** The request named nothing in the dataset - the pipeline refused to score
+   *  it and returned the vocabulary that would have worked. */
+  onUnrecognised: (payload: Unrecognised) => void
   onError: (message: string) => void
 }
 
@@ -109,6 +113,12 @@ export async function streamAnalysis(
             break
           case 'agent':
             handlers.onAgent(payload as never)
+            break
+          case 'unrecognised':
+            // A refusal is a terminal outcome, not an error - the stream ends
+            // here on purpose and must not report "ended before finishing".
+            sawComplete = true
+            handlers.onUnrecognised(payload as never)
             break
           case 'complete':
             sawComplete = true

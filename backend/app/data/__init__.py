@@ -145,6 +145,21 @@ example_requests: list[dict[str, str]] = [
      "request": "Remove customerEmail field from order-created Kafka event"},
 ]
 
+def known_vocabulary() -> dict[str, list[str]]:
+    """Everything intake can resolve.
+
+    The input box accepts free text but understands a closed set. Surfacing that
+    set is what stops a visitor typing a service that does not exist and getting
+    a confident, meaningless score back.
+    """
+    return {
+        "services": sorted(services),
+        "libraries": sorted(libraries),
+        "apis": sorted(api_consumers),
+        "events": sorted(event_consumers),
+    }
+
+
 SCENARIOS = (
     "framework_upgrade",
     "resource_change",
@@ -156,6 +171,7 @@ SCENARIOS = (
 
 __all__ = [
     "SCENARIOS",
+    "known_vocabulary",
     "api_consumers",
     "compatibility_rules",
     "database_users",

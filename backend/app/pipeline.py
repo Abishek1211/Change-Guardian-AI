@@ -20,6 +20,33 @@ from typing import Any, AsyncIterator
 from langgraph.graph import END, StateGraph
 
 from .agents import AGENTS, AgentSpec
+from .data import example_requests, known_vocabulary
+
+
+class UnrecognisedService(Exception):
+    """Raised when intake cannot resolve the request to a known service.
+
+    Continuing past this point would produce a score assembled entirely from
+    defaults - no blast radius, no rule violations - which reads as authoritative
+    and means nothing. Refusing is the honest answer, and it is also the more
+    useful one: the caller gets the vocabulary that *would* work.
+    """
+
+    def __init__(self, change_request: str) -> None:
+        super().__init__(f"No known service in: {change_request!r}")
+        self.change_request = change_request
+
+    def payload(self) -> dict[str, Any]:
+        return {
+            "error": "unrecognised_service",
+            "detail": (
+                "That change request does not name anything in the demo estate. "
+                "This is a synthetic dataset, so only the services below exist."
+            ),
+            "change_request": self.change_request,
+            "known": known_vocabulary(),
+            "examples": example_requests,
+        }
 
 
 def build_workflow():
@@ -47,8 +74,25 @@ def get_workflow():
     return _workflow
 
 
+def resolve_or_raise(change_request: str) -> dict[str, Any]:
+    """Run intake alone and reject anything it cannot resolve.
+
+    Intake is pure regex over a closed vocabulary, so running it twice costs
+    nothing measurable and keeps the guard in one place.
+    """
+    state = AGENTS[0].run({"change_request": change_request})
+    if not state.get("service_recognised"):
+        raise UnrecognisedService(change_request)
+    return state
+
+
 def run_analysis(change_request: str) -> dict[str, Any]:
-    """Run the full pipeline and return the report dict."""
+    """Run the full pipeline and return the report dict.
+
+    Raises UnrecognisedService if the request names nothing in the dataset.
+    """
+    resolve_or_raise(change_request)
+
     started = time.monotonic()
     state = get_workflow().invoke({"change_request": change_request})
     report = dict(state.get("report", {}))
@@ -78,6 +122,15 @@ async def stream_analysis(change_request: str) -> AsyncIterator[dict[str, Any]]:
         {"event": "agent",    "status": "error", "error": "..."}
         {"event": "complete", "report": {...}, "elapsed_ms": 1234}
     """
+    # Reject before announcing a seven-step pipeline. Streaming six agents that
+    # have nothing to work on, only to end with a meaningless score, wastes the
+    # visitor's time and misrepresents what the tool knows.
+    try:
+        resolve_or_raise(change_request)
+    except UnrecognisedService as exc:
+        yield {"event": "unrecognised", **exc.payload()}
+        return
+
     yield {
         "event": "start",
         "agents": [

@@ -13,6 +13,7 @@ class CGState(TypedDict, total=False):
     # Agent 1 - intake
     change_request: str
     service_name: str
+    service_recognised: bool
     old_value: str
     new_value: str
     extra_params: dict[str, Any]

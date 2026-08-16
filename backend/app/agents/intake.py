@@ -118,6 +118,11 @@ def intake_agent(state: dict) -> dict:
     return {
         **state,
         "service_name": service_name,
+        # Everything downstream keys off a resolved service. Without one, agent 3
+        # has nothing to traverse and agent 6's scenario rules cannot fire - the
+        # pipeline would still emit a confident-looking score built only from
+        # defaults. Flag it here so the caller can refuse rather than guess.
+        "service_recognised": service_name != "unknown",
         "old_value": old_value,
         "new_value": new_value,
         "extra_params": extra,
