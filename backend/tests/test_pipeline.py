@@ -22,7 +22,8 @@ os.environ["LLM_BASE_URL"] = "https://api.groq.com/openai/v1"
 
 from app.agents import AGENT_KEYS  # noqa: E402
 from app.graph import get_affected_services, graph_payload  # noqa: E402
-from app.pipeline import run_analysis, stream_analysis  # noqa: E402
+from app.pipeline import UnrecognisedService, run_analysis, stream_analysis  # noqa: E402
+from app.rag import MIN_SIMILARITY, search_incidents  # noqa: E402
 
 # (request, expected scenario, expected service, minimum score)
 CASES = [
@@ -131,11 +132,43 @@ def test_blast_radius_is_bidirectional():
     assert "payment-service" not in affected, "a service is not in its own blast radius"
 
 
-def test_unknown_service_degrades_gracefully():
-    report = run_analysis("Upgrade some-service-that-does-not-exist to version 9")
-    assert report["service"] == "unknown"
-    assert report["affected_services"] == []
-    assert report["risk_score"] > 0, "an unknown service should still score, not crash"
+def test_unknown_service_is_refused_not_scored():
+    """Previously this produced 55/100 HIGH for a service that does not exist,
+    with an empty blast radius and no violations - a confident number built
+    entirely from defaults. Refusing is the honest answer."""
+    try:
+        run_analysis("Upgrade my-cool-api from v1 to v2")
+    except UnrecognisedService as exc:
+        payload = exc.payload()
+        assert payload["error"] == "unrecognised_service"
+        assert "payment-service" in payload["known"]["services"]
+        assert payload["examples"], "a refusal must offer something that does work"
+        return
+    raise AssertionError("an unresolvable service must not produce a score")
+
+
+def test_unrelated_query_retrieves_no_incidents():
+    """Nearest-neighbour search always returns something. Without a similarity
+    floor an unrelated change still scored +20 for a phantom 'similar P1'."""
+    hits = search_incidents("the weather in Chennai is pleasant today", k=3)
+    assert hits == [], f"expected no matches above the floor, got {[h['id'] for h in hits]}"
+
+
+def test_genuine_match_survives_the_similarity_floor():
+    hits = search_incidents("Spring Boot upgrade Java version incompatibility", k=3)
+    assert hits, "a real match must still be retrieved"
+    assert hits[0]["id"] == "INC-002"
+    assert hits[0]["sim"] >= MIN_SIMILARITY
+
+
+def test_stream_reports_unrecognised_without_running_agents():
+    async def collect():
+        return [e async for e in stream_analysis("Upgrade my-cool-api from v1 to v2")]
+
+    events = asyncio.run(collect())
+    assert len(events) == 1, "no agent should run for an unresolvable request"
+    assert events[0]["event"] == "unrecognised"
+    assert events[0]["known"]["services"]
 
 
 def test_graph_payload_shape():

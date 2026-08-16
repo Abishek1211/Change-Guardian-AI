@@ -74,3 +74,19 @@ export interface Example {
   label: string
   request: string
 }
+
+/** Everything intake can resolve. The input accepts free text but understands
+ *  only this closed set, so the UI shows it rather than letting people guess. */
+export interface KnownVocabulary {
+  services: string[]
+  libraries: string[]
+  apis: string[]
+  events: string[]
+}
+
+export interface Unrecognised {
+  detail: string
+  change_request: string
+  known: KnownVocabulary
+  examples: Example[]
+}

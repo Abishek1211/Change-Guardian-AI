@@ -68,6 +68,14 @@ const SHOTS = [
     selector: '[data-shot="blast-radius"]',
     hover: '.react-flow__node[data-id="checkout-service"]',
   },
+  {
+    // Naming something outside the dataset stops the pipeline at intake and
+    // returns the vocabulary instead of a score assembled from defaults.
+    name: 'unrecognised',
+    request: 'Upgrade my-cool-api from v1 to v2',
+    selector: '[data-shot="unrecognised"]',
+    waitFor: '[data-shot="unrecognised"]',
+  },
 ]
 
 function findChrome() {
@@ -113,8 +121,11 @@ async function main() {
       await page.goto(url, { waitUntil: 'networkidle2' })
 
       // The score breakdown only renders once agent 7 has returned and the
-      // report is set, so it is a reliable "pipeline finished" signal.
-      await page.waitForSelector('[data-shot="risk-score"]', { timeout: 60_000 })
+      // report is set, so it is a reliable "pipeline finished" signal. A shot
+      // of a refusal never renders one and waits on its own panel instead.
+      await page.waitForSelector(shot.waitFor ?? '[data-shot="risk-score"]', {
+        timeout: 60_000,
+      })
       await page.waitForFunction(
         () => !document.querySelector('button[type="submit"]')?.disabled,
         { timeout: 60_000 },

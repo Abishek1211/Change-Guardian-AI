@@ -39,9 +39,15 @@ LLM_BASE_URL=https://api.groq.com/openai/v1
 LLM_MODEL=llama-3.1-8b-instant
 LLM_API_KEY=gsk_...
 LLM_TIMEOUT_SECONDS=20
-RATE_LIMIT_PER_MINUTE=5
+RATE_LIMIT_PER_MINUTE=12
 TRUST_PROXY_HEADERS=true
 ```
+
+The limit is per IP, per endpoint. Twelve rather than five because the UI offers
+six example buttons, and someone clicking through all of them — the exact thing
+the demo invites — hit a 429 on the last one. Groq's token ceiling is the real
+backstop, and the circuit breaker turns an exhausted quota into rule-based
+explanations rather than errors.
 
 `TRUST_PROXY_HEADERS` matters. Behind Traefik every request arrives from the
 proxy's address, so without reading `X-Forwarded-For` the rate limiter would

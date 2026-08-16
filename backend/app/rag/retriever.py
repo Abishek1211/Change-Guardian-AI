@@ -27,6 +27,16 @@ logger = logging.getLogger(__name__)
 # Written by backend/scripts/prebuild_index.py during the Docker build.
 VECTOR_CACHE = Path(__file__).resolve().parent / "incident_vectors.npz"
 
+# Nearest-neighbour search always returns *something*. Over a six-document
+# corpus that means an unrelated query still comes back with three "similar"
+# incidents, and agent 6 then adds +20 for a P1 match that is pure noise.
+#
+# Observed cosine similarities for a genuine match ("Spring Boot upgrade Java"
+# -> INC-002) sit around 0.55, while unrelated documents land near 0.20. A floor
+# of 0.30 separates them with room to spare. Retrieval returning nothing is a
+# valid answer: it means this change resembles no incident on record.
+MIN_SIMILARITY = 0.30
+
 
 def _corpus_text(doc: dict[str, Any]) -> str:
     return f"{doc['title']}. {doc['root_cause']} Lesson: {doc['lesson']}"
@@ -100,7 +110,9 @@ class IncidentRetriever:
 
     # ----------------------------------------------------------------- search
 
-    def search(self, query: str, k: int = 3) -> list[dict[str, Any]]:
+    def search(
+        self, query: str, k: int = 3, min_similarity: float = MIN_SIMILARITY
+    ) -> list[dict[str, Any]]:
         self._ensure_ready()
         assert self._embedder is not None and self._vectors is not None
 
@@ -119,6 +131,8 @@ class IncidentRetriever:
         results = []
         for score, idx in pairs:
             if idx < 0:  # FAISS pads with -1 when it has fewer vectors than k
+                continue
+            if float(score) < min_similarity:
                 continue
             doc = dict(self._docs[int(idx)])
             doc["sim"] = round(float(score), 3)
@@ -139,8 +153,10 @@ class IncidentRetriever:
 _retriever = IncidentRetriever()
 
 
-def search_incidents(query: str, k: int = 3) -> list[dict[str, Any]]:
-    return _retriever.search(query, k)
+def search_incidents(
+    query: str, k: int = 3, min_similarity: float = MIN_SIMILARITY
+) -> list[dict[str, Any]]:
+    return _retriever.search(query, k, min_similarity)
 
 
 def get_retriever() -> IncidentRetriever:

@@ -6,20 +6,23 @@ import json
 import os
 from typing import Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
-from ..data import SCENARIOS, example_requests, services
+from ..data import SCENARIOS, example_requests, known_vocabulary, services
 from ..graph import graph_payload
 from ..llm import get_client
-from ..pipeline import run_analysis, stream_analysis
+from ..pipeline import UnrecognisedService, run_analysis, stream_analysis
 from ..rag import get_retriever
 from .limiter import limiter
 
 router = APIRouter()
 
-RATE_LIMIT = f"{os.getenv('RATE_LIMIT_PER_MINUTE', '5')}/minute"
+# 12 rather than 5: there are six example buttons, and someone clicking through
+# all of them - exactly the behaviour the demo is built for - would otherwise be
+# rate-limited on the last one.
+RATE_LIMIT = f"{os.getenv('RATE_LIMIT_PER_MINUTE', '12')}/minute"
 
 MAX_REQUEST_CHARS = 500
 
@@ -41,10 +44,18 @@ class AnalyzeResponse(BaseModel):
 @router.post("/api/analyze", response_model=AnalyzeResponse)
 @limiter.limit(RATE_LIMIT)
 async def analyze(request: Request, body: AnalyzeRequest) -> AnalyzeResponse:
-    """Run all 7 agents and return the finished report."""
+    """Run all 7 agents and return the finished report.
+
+    422 with the known vocabulary if the request names nothing in the dataset -
+    the pipeline refuses to score a service it cannot find rather than assembling
+    one from defaults.
+    """
     import asyncio
 
-    report = await asyncio.to_thread(run_analysis, body.change_request)
+    try:
+        report = await asyncio.to_thread(run_analysis, body.change_request)
+    except UnrecognisedService as exc:
+        raise HTTPException(status_code=422, detail=exc.payload()) from exc
     return AnalyzeResponse(report=report)
 
 
@@ -83,8 +94,16 @@ async def get_services() -> dict[str, Any]:
 
 @router.get("/api/examples")
 async def get_examples() -> dict[str, Any]:
-    """Canned change requests, one per scenario, for the demo UI."""
-    return {"examples": example_requests, "scenarios": list(SCENARIOS)}
+    """Canned change requests plus the vocabulary intake can actually resolve.
+
+    The UI uses `known` to populate an autocomplete, so typing a service name is
+    guided rather than a guess against a closed set the visitor cannot see.
+    """
+    return {
+        "examples": example_requests,
+        "scenarios": list(SCENARIOS),
+        "known": known_vocabulary(),
+    }
 
 
 @router.get("/health")

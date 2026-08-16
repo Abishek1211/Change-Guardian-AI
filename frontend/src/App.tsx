@@ -4,15 +4,56 @@ import { AgentTimeline } from './components/AgentTimeline'
 import { BlastRadiusGraph } from './components/BlastRadiusGraph'
 import { Explanation, History, Incidents, Violations } from './components/Findings'
 import { RiskScore } from './components/RiskScore'
-import type { AgentRun, Example, Report, ServiceGraph } from './types'
+import type {
+  AgentRun,
+  Example,
+  KnownVocabulary,
+  Report,
+  ServiceGraph,
+  Unrecognised,
+} from './types'
+
+function VocabularyList({
+  title,
+  items,
+  onPick,
+}: {
+  title: string
+  items: string[]
+  onPick: (name: string) => void
+}) {
+  if (items.length === 0) return null
+  return (
+    <div>
+      <p className="mb-1 text-[10px] tracking-widest text-slate-600 uppercase">{title}</p>
+      <ul className="space-y-0.5">
+        {items.map((name) => (
+          <li key={name}>
+            <button
+              type="button"
+              // Clicking drops the name into the input so the visitor can build
+              // a request around something that actually exists.
+              onClick={() => onPick(name)}
+              className="font-mono text-[11px] text-slate-400 transition hover:text-accent"
+            >
+              {name}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 
 export default function App() {
   const [changeRequest, setChangeRequest] = useState('')
   const [examples, setExamples] = useState<Example[]>([])
+  const [known, setKnown] = useState<KnownVocabulary | null>(null)
   const [graph, setGraph] = useState<ServiceGraph | null>(null)
 
   const [agents, setAgents] = useState<AgentRun[]>([])
   const [report, setReport] = useState<Report | null>(null)
+  const [unrecognised, setUnrecognised] = useState<Unrecognised | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
 
@@ -24,6 +65,7 @@ export default function App() {
     fetchExamples()
       .then((data) => {
         setExamples(data.examples)
+        setKnown(data.known)
         setChangeRequest((current) => current || data.examples[0]?.request || '')
       })
       .catch(() => setExamples([]))
@@ -57,6 +99,7 @@ export default function App() {
       setRunning(true)
       setError(null)
       setReport(null)
+      setUnrecognised(null)
       setAgents([])
 
       // Keep the address bar in sync so the current analysis can be copied and
@@ -96,6 +139,11 @@ export default function App() {
             ),
           onComplete: (finished) => {
             setReport(finished)
+            setRunning(false)
+          },
+          onUnrecognised: (payload) => {
+            setUnrecognised(payload)
+            setAgents([])
             setRunning(false)
           },
           onError: (message) => {
@@ -146,8 +194,19 @@ export default function App() {
             onChange={(event) => setChangeRequest(event.target.value)}
             placeholder="Upgrade payment-service from Spring Boot 2.7 to 3.2"
             maxLength={500}
+            list="known-targets"
+            spellCheck={false}
+            autoComplete="off"
             className="flex-1 rounded border border-ink-700 bg-ink-900 px-3.5 py-2.5 font-mono text-sm text-slate-200 placeholder:text-slate-700 focus:border-accent/60 focus:outline-none"
           />
+          {/* The dataset is a closed set. Offering it as suggestions means
+              typing your own request is guided rather than a guess. */}
+          <datalist id="known-targets">
+            {known &&
+              [...known.services, ...known.libraries, ...known.apis, ...known.events].map(
+                (name) => <option key={name} value={name} />,
+              )}
+          </datalist>
           <button
             type="submit"
             disabled={running || !changeRequest.trim()}
@@ -179,6 +238,34 @@ export default function App() {
         <div className="mb-6 rounded border border-risk-critical/40 bg-risk-critical/5 px-4 py-3 text-sm text-risk-critical">
           {error}
         </div>
+      )}
+
+      {unrecognised && (
+        <section
+          data-shot="unrecognised"
+          className="mb-6 rounded border border-risk-medium/40 bg-risk-medium/5 px-4 py-4"
+        >
+          <p className="text-sm text-risk-medium">
+            No match for{' '}
+            <span className="font-mono">“{unrecognised.change_request}”</span>
+          </p>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+            {unrecognised.detail} Rather than score a service it cannot find, the pipeline
+            stops here — a number built from defaults would look authoritative and mean
+            nothing.
+          </p>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <VocabularyList title="Services" items={unrecognised.known.services} onPick={setChangeRequest} />
+            <VocabularyList title="Libraries" items={unrecognised.known.libraries} onPick={setChangeRequest} />
+            <VocabularyList title="APIs" items={unrecognised.known.apis} onPick={setChangeRequest} />
+            <VocabularyList title="Kafka events" items={unrecognised.known.events} onPick={setChangeRequest} />
+          </div>
+
+          <p className="mt-3 text-xs text-slate-500">
+            Or try one of the scenarios above.
+          </p>
+        </section>
       )}
 
       <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
