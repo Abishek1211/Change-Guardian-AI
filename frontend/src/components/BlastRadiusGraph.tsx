@@ -23,8 +23,8 @@ interface NodeData {
 const RING_STYLE: Record<Ring, string> = {
   origin: 'border-accent bg-accent/15 text-accent shadow-[0_0_0_3px_rgb(52_211_153/0.12)]',
   affected: 'border-risk-critical/70 bg-risk-critical/10 text-risk-critical',
-  quiet: 'border-ink-700 bg-ink-850 text-slate-500',
-  infra: 'border-ink-700 bg-ink-900 text-slate-600',
+  quiet: 'border-ink-700 bg-ink-850 text-fg-muted',
+  infra: 'border-ink-700 bg-ink-900 text-fg-faint',
 }
 
 const KIND_GLYPH: Record<string, string> = {
@@ -44,7 +44,7 @@ function GraphNodeCard({ data }: NodeProps<NodeData>) {
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
       {isInfra && (
-        <span className="mr-1.5 text-[9px] text-slate-700">{KIND_GLYPH[data.kind] ?? ''}</span>
+        <span className="mr-1.5 text-[9px] text-fg-faint">{KIND_GLYPH[data.kind] ?? ''}</span>
       )}
       {data.label}
       {data.criticality === 'critical' && data.ring !== 'infra' && (
@@ -176,13 +176,13 @@ export function BlastRadiusGraph({
       className="flex h-[460px] flex-col rounded border border-ink-800 bg-ink-900"
     >
       <div className="flex items-center justify-between border-b border-ink-800 px-4 py-2.5">
-        <h2 className="text-xs tracking-widest text-slate-500 uppercase">
+        <h2 className="text-xs tracking-widest text-fg-muted uppercase">
           Blast radius
-          <span className="ml-2 hidden normal-case tracking-normal text-slate-700 sm:inline">
+          <span className="ml-2 hidden normal-case tracking-normal text-fg-faint sm:inline">
             — hover a node to trace its dependencies
           </span>
         </h2>
-        <div className="flex items-center gap-3 font-mono text-[10px] text-slate-600">
+        <div className="flex items-center gap-3 font-mono text-[10px] text-fg-faint">
           <Legend className="bg-accent" label="changed" />
           <Legend className="bg-risk-critical" label={`affected (${affected.length})`} />
           <Legend className="bg-ink-600" label="unaffected" />
@@ -208,7 +208,7 @@ export function BlastRadiusGraph({
             <Controls showInteractive={false} className="!shadow-none" />
           </ReactFlow>
         ) : (
-          <div className="flex h-full items-center justify-center text-xs text-slate-600">
+          <div className="flex h-full items-center justify-center text-xs text-fg-faint">
             Loading dependency graph…
           </div>
         )}

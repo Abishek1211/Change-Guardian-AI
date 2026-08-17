@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchExamples, fetchGraph, streamAnalysis } from './api'
 import { AgentTimeline } from './components/AgentTimeline'
 import { BlastRadiusGraph } from './components/BlastRadiusGraph'
 import { Explanation, History, Incidents, Violations } from './components/Findings'
+import { AboutPanel, EstatePanel, VocabularyList } from './components/Guide'
 import { RiskScore } from './components/RiskScore'
 import type {
   AgentRun,
@@ -12,38 +13,6 @@ import type {
   ServiceGraph,
   Unrecognised,
 } from './types'
-
-function VocabularyList({
-  title,
-  items,
-  onPick,
-}: {
-  title: string
-  items: string[]
-  onPick: (name: string) => void
-}) {
-  if (items.length === 0) return null
-  return (
-    <div>
-      <p className="mb-1 text-[10px] tracking-widest text-slate-600 uppercase">{title}</p>
-      <ul className="space-y-0.5">
-        {items.map((name) => (
-          <li key={name}>
-            <button
-              type="button"
-              // Clicking drops the name into the input so the visitor can build
-              // a request around something that actually exists.
-              onClick={() => onPick(name)}
-              className="font-mono text-[11px] text-slate-400 transition hover:text-accent"
-            >
-              {name}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
 
 export default function App() {
   const [changeRequest, setChangeRequest] = useState('')
@@ -56,6 +25,26 @@ export default function App() {
   const [unrecognised, setUnrecognised] = useState<Unrecognised | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
+  // Open on a visitor's first arrival - someone landing cold needs to know what
+  // this is before an input box is useful. Dismissing it is remembered.
+  const [showAbout, setShowAbout] = useState(
+    () => localStorage.getItem('cg.about.dismissed') !== '1',
+  )
+
+  const dismissAbout = useCallback(() => {
+    localStorage.setItem('cg.about.dismissed', '1')
+    setShowAbout(false)
+  }, [])
+
+  const criticalServices = useMemo(
+    () =>
+      new Set(
+        (graph?.nodes ?? [])
+          .filter((n) => n.criticality === 'critical')
+          .map((n) => n.id),
+      ),
+    [graph],
+  )
 
   const abortRef = useRef<AbortController | null>(null)
   const autoRunRef = useRef(false)
@@ -166,20 +155,40 @@ export default function App() {
     <div className="mx-auto max-w-[1400px] px-5 py-6">
       <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3 border-b border-ink-800 pb-4">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight text-slate-100">
+          <h1 className="text-lg font-semibold tracking-tight text-fg">
             ChangeGuardian <span className="text-accent">AI</span>
           </h1>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-0.5 text-xs text-fg-muted">
             Deployment risk analysis · 7-agent pipeline · six of seven agents are deterministic
           </p>
         </div>
-        <a
-          href="/docs"
-          className="font-mono text-xs text-slate-600 transition hover:text-accent"
-        >
-          API docs →
-        </a>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => (showAbout ? dismissAbout() : setShowAbout(true))}
+            aria-expanded={showAbout}
+            className="rounded border border-ink-700 px-2.5 py-1 font-mono text-xs text-fg-muted transition hover:border-accent/50 hover:text-accent"
+          >
+            {showAbout ? 'hide about' : 'about'}
+          </button>
+          <a
+            href="/docs"
+            className="font-mono text-xs text-fg-faint transition hover:text-accent"
+          >
+            API docs →
+          </a>
+        </div>
       </header>
+
+      {showAbout && (
+        <AboutPanel
+          examples={examples}
+          onPick={(request) => {
+            setChangeRequest(request)
+            analyse(request)
+          }}
+          onClose={dismissAbout}
+        />
+      )}
 
       <form
         onSubmit={(event) => {
@@ -197,7 +206,7 @@ export default function App() {
             list="known-targets"
             spellCheck={false}
             autoComplete="off"
-            className="flex-1 rounded border border-ink-700 bg-ink-900 px-3.5 py-2.5 font-mono text-sm text-slate-200 placeholder:text-slate-700 focus:border-accent/60 focus:outline-none"
+            className="flex-1 rounded border border-ink-700 bg-ink-900 px-3.5 py-2.5 font-mono text-sm text-fg placeholder:text-fg-faint focus:border-accent/60 focus:outline-none"
           />
           {/* The dataset is a closed set. Offering it as suggestions means
               typing your own request is guided rather than a guess. */}
@@ -210,14 +219,15 @@ export default function App() {
           <button
             type="submit"
             disabled={running || !changeRequest.trim()}
-            className="rounded border border-accent/50 bg-accent/10 px-6 py-2.5 text-sm font-medium text-accent transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:border-ink-700 disabled:bg-ink-900 disabled:text-slate-600"
+            className="rounded border border-accent/50 bg-accent/10 px-6 py-2.5 text-sm font-medium text-accent transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:border-ink-700 disabled:bg-ink-900 disabled:text-fg-faint"
           >
             {running ? 'Analysing…' : 'Analyse'}
           </button>
         </div>
       </form>
 
-      <div className="mb-6 flex flex-wrap gap-1.5">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-[11px] text-fg-faint">Try:</span>
         {examples.map((example) => (
           <button
             key={example.scenario}
@@ -227,12 +237,18 @@ export default function App() {
             }}
             disabled={running}
             title={example.request}
-            className="rounded border border-ink-800 bg-ink-900 px-2.5 py-1 font-mono text-[11px] text-slate-500 transition hover:border-ink-600 hover:text-slate-300 disabled:opacity-40"
+            className="rounded border border-ink-800 bg-ink-900 px-2.5 py-1 font-mono text-[11px] text-fg-muted transition hover:border-ink-600 hover:text-fg disabled:opacity-40"
           >
             {example.label}
           </button>
         ))}
       </div>
+
+      <EstatePanel
+        known={known}
+        criticalServices={criticalServices}
+        onPick={(name) => setChangeRequest(name)}
+      />
 
       {error && (
         <div className="mb-6 rounded border border-risk-critical/40 bg-risk-critical/5 px-4 py-3 text-sm text-risk-critical">
@@ -249,7 +265,7 @@ export default function App() {
             No match for{' '}
             <span className="font-mono">“{unrecognised.change_request}”</span>
           </p>
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+          <p className="mt-1.5 text-xs leading-relaxed text-fg-muted">
             {unrecognised.detail} Rather than score a service it cannot find, the pipeline
             stops here — a number built from defaults would look authoritative and mean
             nothing.
@@ -262,7 +278,7 @@ export default function App() {
             <VocabularyList title="Kafka events" items={unrecognised.known.events} onPick={setChangeRequest} />
           </div>
 
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-xs text-fg-muted">
             Or try one of the scenarios above.
           </p>
         </section>
@@ -273,7 +289,7 @@ export default function App() {
           {agents.length > 0 ? (
             <AgentTimeline agents={agents} />
           ) : (
-            <section className="rounded border border-dashed border-ink-800 px-4 py-8 text-center text-xs text-slate-700">
+            <section className="rounded border border-dashed border-ink-800 px-4 py-8 text-center text-xs text-fg-faint">
               Describe a change, or pick a scenario above.
             </section>
           )}
@@ -301,7 +317,7 @@ export default function App() {
         </div>
       </div>
 
-      <footer className="mt-8 border-t border-ink-800 pt-4 text-[11px] text-slate-700">
+      <footer className="mt-8 border-t border-ink-800 pt-4 text-[11px] text-fg-faint">
         Demo dataset — the services, incidents, and deployment history are synthetic, modelled on a
         mid-size e-commerce estate rather than drawn from any real system.
         {report && (

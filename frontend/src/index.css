@@ -6,12 +6,24 @@
    only thing allowed to use colour loudly, because it is the only thing that
    should pull the eye. */
 @theme {
-  --color-ink-950: #080b11;
-  --color-ink-900: #0d121b;
-  --color-ink-850: #121926;
-  --color-ink-800: #18202f;
-  --color-ink-700: #232d40;
-  --color-ink-600: #33405a;
+  /* Lifted off near-black. The previous surfaces were #080b11/#0d121b, which
+     left secondary text at 1.8:1 to 4.0:1 contrast - below the 4.5:1 WCAG AA
+     threshold and genuinely hard to read. */
+  --color-ink-950: #10151f;
+  --color-ink-900: #171e2b;
+  --color-ink-850: #1d2532;
+  --color-ink-800: #253040;
+  --color-ink-700: #313d52;
+  --color-ink-600: #414f68;
+
+  /* Semantic text tiers, all measured against --color-ink-900:
+       fg        primary                  ~14:1
+       fg-muted  secondary, still prose    ~8.2:1
+       fg-faint  labels and hints          ~5.9:1
+     Nothing below fg-faint is used for text a reader needs. */
+  --color-fg: #e6ecf5;
+  --color-fg-muted: #aab7ca;
+  --color-fg-faint: #8d9aaf;
 
   --color-accent: #34d399;
 
@@ -31,7 +43,7 @@ body,
 
 body {
   background: var(--color-ink-950);
-  color: #cbd5e1;
+  color: var(--color-fg);
   font-feature-settings: 'tnum' 1;
 }
 
