@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -76,8 +76,35 @@ export function BlastRadiusGraph({
   // this is how you find out *why* a particular one is in the set.
   const [hovered, setHovered] = useState<string | null>(null)
 
-  const onNodeEnter = useCallback((_: unknown, node: Node) => setHovered(node.id), [])
-  const onNodeLeave = useCallback(() => setHovered(null), [])
+  // Hysteresis. Without it, dragging the cursor across the pane clips a dozen
+  // nodes on the way past and each one re-dims all 19 with a 140ms fade - the
+  // whole graph pulses. ENTER_DELAY means a node has to be settled on rather
+  // than merely passed over; LEAVE_DELAY keeps the isolation up long enough to
+  // move between a node and its neighbours without flashing back to normal.
+  const ENTER_DELAY = 160
+  const LEAVE_DELAY = 220
+  const enterTimer = useRef<number | undefined>(undefined)
+  const leaveTimer = useRef<number | undefined>(undefined)
+
+  const clearTimers = useCallback(() => {
+    window.clearTimeout(enterTimer.current)
+    window.clearTimeout(leaveTimer.current)
+  }, [])
+
+  const onNodeEnter = useCallback(
+    (_: unknown, node: Node) => {
+      clearTimers()
+      enterTimer.current = window.setTimeout(() => setHovered(node.id), ENTER_DELAY)
+    },
+    [clearTimers],
+  )
+
+  const onNodeLeave = useCallback(() => {
+    clearTimers()
+    leaveTimer.current = window.setTimeout(() => setHovered(null), LEAVE_DELAY)
+  }, [clearTimers])
+
+  useEffect(() => clearTimers, [clearTimers])
 
   const neighbours = useMemo(() => {
     if (!graph || !hovered) return null
@@ -124,8 +151,11 @@ export function BlastRadiusGraph({
         draggable: true,
         selectable: false,
         style: {
-          opacity: neighbours && !neighbours.has(node.id) ? 0.12 : 1,
-          transition: 'opacity 140ms ease',
+          // 0.22 rather than 0.12: still unmistakably backgrounded, but a
+          // smaller jump, so a transition that does happen reads as a fade
+          // rather than a flash.
+          opacity: neighbours && !neighbours.has(node.id) ? 0.22 : 1,
+          transition: 'opacity 200ms ease',
         },
       }
     })
@@ -161,8 +191,8 @@ export function BlastRadiusGraph({
         style: {
           stroke,
           strokeWidth: touchesHover ? 1.8 : hot ? 1.6 : 1,
-          opacity: dimmed ? 0.06 : touchesHover ? 0.95 : hot ? 0.85 : 0.35,
-          transition: 'opacity 140ms ease',
+          opacity: dimmed ? 0.1 : touchesHover ? 0.95 : hot ? 0.85 : 0.35,
+          transition: 'opacity 200ms ease',
         },
       }
     })
