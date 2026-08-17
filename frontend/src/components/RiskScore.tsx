@@ -29,14 +29,14 @@ export function RiskScore({ report }: { report: Report }) {
           <span className={`font-mono text-6xl leading-none font-semibold ${style.text}`}>
             {report.risk_score}
           </span>
-          <span className="font-mono text-lg text-slate-600">/100</span>
+          <span className="font-mono text-lg text-fg-faint">/100</span>
         </div>
 
         <div className="flex flex-col gap-1">
           <span className={`text-sm font-semibold tracking-widest uppercase ${style.text}`}>
             {report.impact_level}
           </span>
-          <span className="font-mono text-xs text-slate-500">{report.scenario}</span>
+          <span className="font-mono text-xs text-fg-muted">{report.scenario}</span>
         </div>
 
         <div className="ml-auto grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-3">
@@ -50,17 +50,17 @@ export function RiskScore({ report }: { report: Report }) {
       </div>
 
       <div className="border-t border-ink-800 px-5 py-3">
-        <p className="font-mono text-sm text-slate-300">{report.rollout_plan}</p>
+        <p className="font-mono text-sm text-fg">{report.rollout_plan}</p>
       </div>
 
       <div className="border-t border-ink-800">
         <button
           onClick={() => setShowBreakdown((open) => !open)}
-          className="flex w-full items-center justify-between px-5 py-2.5 text-left text-xs tracking-wide text-slate-400 uppercase transition hover:bg-ink-850 hover:text-slate-200"
+          className="flex w-full items-center justify-between px-5 py-2.5 text-left text-xs tracking-wide text-fg-muted uppercase transition hover:bg-ink-850 hover:text-fg"
           aria-expanded={showBreakdown}
         >
           <span>How this score was reached · {report.risk_reasons.length} factors</span>
-          <span className="font-mono text-slate-600">{showBreakdown ? '−' : '+'}</span>
+          <span className="font-mono text-fg-faint">{showBreakdown ? '−' : '+'}</span>
         </button>
 
         {showBreakdown && (
@@ -69,13 +69,13 @@ export function RiskScore({ report }: { report: Report }) {
               const points = pointsOf(reason)
               return (
                 <li key={reason} className="flex items-center gap-3 font-mono text-xs">
-                  <span className="w-8 shrink-0 text-right text-slate-500">+{points}</span>
+                  <span className="w-8 shrink-0 text-right text-fg-muted">+{points}</span>
                   <span
                     className={`h-1.5 shrink-0 rounded-sm ${style.bar} opacity-70`}
                     style={{ width: `${Math.max((points / maxPoints) * 88, 4)}px` }}
                     aria-hidden
                   />
-                  <span className="text-slate-400">
+                  <span className="text-fg-muted">
                     {reason.replace(/\s*\(\+\d+\)\s*$/, '')}
                   </span>
                 </li>
@@ -91,8 +91,8 @@ export function RiskScore({ report }: { report: Report }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] tracking-widest text-slate-600 uppercase">{label}</span>
-      <span className="font-mono text-xs text-slate-300">{value}</span>
+      <span className="text-[10px] tracking-widest text-fg-faint uppercase">{label}</span>
+      <span className="font-mono text-xs text-fg">{value}</span>
     </div>
   )
 }

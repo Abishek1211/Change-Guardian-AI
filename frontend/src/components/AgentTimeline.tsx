@@ -51,7 +51,7 @@ const DOT: Record<AgentRun['status'], string> = {
 export function AgentTimeline({ agents }: { agents: AgentRun[] }) {
   return (
     <section data-shot="pipeline" className="rounded border border-ink-800 bg-ink-900">
-      <h2 className="border-b border-ink-800 px-4 py-2.5 text-xs tracking-widest text-slate-500 uppercase">
+      <h2 className="border-b border-ink-800 px-4 py-2.5 text-xs tracking-widest text-fg-muted uppercase">
         Pipeline
       </h2>
 
@@ -79,14 +79,14 @@ export function AgentTimeline({ agents }: { agents: AgentRun[] }) {
                 <div className="flex items-baseline justify-between gap-2">
                   <span
                     className={`text-sm ${
-                      agent.status === 'pending' ? 'text-slate-600' : 'text-slate-200'
+                      agent.status === 'pending' ? 'text-fg-faint' : 'text-fg'
                     }`}
                   >
-                    <span className="font-mono text-xs text-slate-600">{agent.index}. </span>
+                    <span className="font-mono text-xs text-fg-faint">{agent.index}. </span>
                     {agent.label}
                   </span>
                   {agent.elapsedMs !== undefined && (
-                    <span className="font-mono text-[11px] text-slate-600 tabular-nums">
+                    <span className="font-mono text-[11px] text-fg-faint tabular-nums">
                       {agent.elapsedMs}ms
                     </span>
                   )}
@@ -97,9 +97,9 @@ export function AgentTimeline({ agents }: { agents: AgentRun[] }) {
                     {agent.error}
                   </p>
                 ) : summary ? (
-                  <p className="mt-0.5 font-mono text-xs break-words text-slate-500">{summary}</p>
+                  <p className="mt-0.5 font-mono text-xs break-words text-fg-muted">{summary}</p>
                 ) : (
-                  <p className="mt-0.5 text-xs text-slate-700">{agent.description}</p>
+                  <p className="mt-0.5 text-xs text-fg-faint">{agent.description}</p>
                 )}
               </div>
             </li>
